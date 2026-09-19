@@ -1,0 +1,8 @@
+# Kaggle API credentials — never commit secrets.
+kaggle.json
+.kaggle/
+
+# Downloaded medical-imaging data and derived local project artifacts.
+ML_Project/
+IXI_data/
+downloads/
