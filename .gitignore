@@ -6,3 +6,7 @@ kaggle.json
 ML_Project/
 IXI_data/
 downloads/
+MNI152_T1_1mm.nii.gz
+
+# Python virtual environment.
+brainage-env/

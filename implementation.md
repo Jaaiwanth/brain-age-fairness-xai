@@ -50,7 +50,7 @@ We use **SFCN by default**. We switch to **DeepBrainNet** only if the SFCN valid
 
 ---
 
-## 3. Validation Step — Test Before Committing *(current stage)*
+## 3. Validation Step — Test Before Committing *(next stage, after Phase 2 preprocessing)*
 
 Before fine-tuning or building the rest of the pipeline, we run a **zero-shot sanity check**:
 
@@ -90,15 +90,18 @@ Hospital/site information is embedded directly in each scan's filename (e.g., `I
 ## 5. Full Pipeline (Phases)
 
 ```
-PHASE 1 — Setup & Data                         [in progress]
+PHASE 1 — Setup & Data                         [complete]
   → IXI scans + real demographics (525 subjects)
   → Resolving file-corruption issue in scan downloads
 
-PHASE 2 — Preprocessing (pretrained-model-compatible)
+PHASE 2 — Preprocessing (pretrained-model-compatible)  [complete]
   → Register to MNI152, skull-strip, normalize, crop
-  → Train/Val/Test split, stratified by sex + site
+  → 499/499 subjects preprocessed successfully, 0 failures
+  → Train/Val/Test split, stratified by sex + site: 349 / 75 / 75
+  → 26 subjects dropped between Phase 1 (525) and Phase 2 (499) —
+    attributable to the file-corruption issue noted in Phase 1
 
-PHASE 3 — Pretrained Model Validation            [current stage]
+PHASE 3 — Pretrained Model Validation                  [next]
   → Zero-shot test of SFCN on a handful of real IXI scans
   → Decide: proceed with SFCN, or switch to DeepBrainNet
 
