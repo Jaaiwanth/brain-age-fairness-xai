@@ -38,7 +38,7 @@ This repo is a small personal GitHub account and can look unpolished, but it is 
 - Multiple architecture variants provided as ready-to-use `.h5` weight files: **InceptionResNetV2, DenseNet169, ResNet50, VGG16** — all hosted directly in the repo via Git LFS.
 - Explicitly validated for **multi-site, multi-scanner generalization** — directly relevant to our site-effect analysis, since the authors specifically designed it to generalize across different scanners.
 - Independently cited and reused across many follow-up studies (e.g., pain/function studies, Alzheimer's studies), showing real-world community trust beyond the original authors.
-- The original paper itself shows the pretrained age-prediction weights work better as a transfer-learning starting point than ImageNet weights, particularly when the target dataset is small — directly supporting our use case with IXI's 525 subjects.
+- The original paper itself shows the pretrained age-prediction weights work better as a transfer-learning starting point than ImageNet weights, particularly when the target dataset is small — directly supporting our use case with IXI's 499 subjects.
 
 ### Trade-off to be aware of
 - DeepBrainNet is a **2D CNN**, not 3D — it processes each scan as a stack of 80 axial slices and takes the median prediction across slices, rather than operating on the full 3D volume at once like SFCN does.
@@ -75,11 +75,11 @@ Before fine-tuning or building the rest of the pipeline, we run a **zero-shot sa
 
 | Property | Value |
 |---|---|
-| Subjects (scans + real demographics merged) | 525 |
+| Subjects (scans + real demographics merged) | 499 (581 T1 scans; 499 matched to demographics) |
 | Modalities | T1-weighted structural MRI |
-| Sites | Guy's Hospital (295), Hammersmith (156), Institute of Psychiatry (74) |
+| Sites | Guy's Hospital (282), Hammersmith (150), Institute of Psychiatry (67) |
 | Age range | 20.0 – 86.3 years |
-| Sex | 291 Female, 234 Male |
+| Sex | 278 Female, 221 Male |
 | License | CC BY-SA 3.0 — must cite source |
 | Registry status | RRID: SCR_005839 — actively cited in 2024–2026 literature, no alerts |
 
@@ -91,17 +91,17 @@ Hospital/site information is embedded directly in each scan's filename (e.g., `I
 
 ```
 PHASE 1 — Setup & Data                         [complete]
-  → IXI scans + real demographics (525 subjects)
-  → Resolving file-corruption issue in scan downloads
+  → 581 IXI T1 scans; 499 matched to real demographics
 
-PHASE 2 — Preprocessing (pretrained-model-compatible)  [complete]
-  → Register to MNI152, skull-strip, normalize, crop
-  → 499/499 subjects preprocessed successfully, 0 failures
+PHASE 2 — Preprocessing (pretrained-model-compatible)  [re-running: v2]
+  → v1 (whole-head registration to nilearn's skull-stripped MNI template)
+    failed an alignment check: brains up to 18 mm out of place, IOP worst
+  → v2: skull-strip first, brain-to-brain affine registration to
+    FSL MNI152 1mm (SFCN's template), crop, per-scan QC
+    (scripts/02b_preprocess_v2.py)
   → Train/Val/Test split, stratified by sex + site: 349 / 75 / 75
-  → 26 subjects dropped between Phase 1 (525) and Phase 2 (499) —
-    attributable to the file-corruption issue noted in Phase 1
 
-PHASE 3 — Pretrained Model Validation                  [next]
+PHASE 3 — Pretrained Model Validation                  [complete: SFCN kept]
   → Zero-shot test of SFCN on a handful of real IXI scans
   → Decide: proceed with SFCN, or switch to DeepBrainNet
 
@@ -145,5 +145,5 @@ PHASE 8 — Results & Report
 | Pretrained model fails zero-shot validation | Switch to DeepBrainNet (Section 2), documented decision |
 | Registration/preprocessing mismatch hurts fine-tuning | Follow exact preprocessing steps from the chosen model's example code |
 | DeepBrainNet's 2D-slice architecture complicates 3D Grad-CAM | Aggregate per-slice Grad-CAM maps into a 3D volume, following precedent set in the DeepBrainNet literature |
-| Small IXI subgroup sizes (esp. IOP, 74 subjects) limit statistical power | Report confidence intervals, use bootstrapping, avoid overclaiming |
+| Small IXI subgroup sizes (esp. IOP, 67 subjects) limit statistical power | Report confidence intervals, use bootstrapping, avoid overclaiming |
 | Domain gap between pretraining cohort and IXI | Treated as a feature — informs the cross-site generalization analysis, not just a limitation |

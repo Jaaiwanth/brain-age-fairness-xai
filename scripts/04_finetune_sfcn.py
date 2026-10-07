@@ -4,6 +4,7 @@ Uses the train and validation splits only. The test split is never read here.
 
 Usage:
     python scripts/04_finetune_sfcn.py --smoke    # 1 quick epoch per stage on 8 subjects
+    python scripts/04_finetune_sfcn.py --overfit  # can the model memorise 16 train subjects?
     python scripts/04_finetune_sfcn.py            # full run
 
 Paths can be overridden with --project-dir / --sfcn-repo / --checkpoint-dir
@@ -49,8 +50,13 @@ DEFAULT_SFCN_REPO = (
 SFCN_REPO_URL = "https://github.com/ha-ha-ha-han/UKBiobank_deep_pretrain.git"
 SFCN_WEIGHTS_RELPATH = Path("brain_age") / "run_20190719_00_epoch_best_mae.p"
 
+# Preprocessed volumes inside PROJECT_DIR. v2 = brain-to-brain registration to FSL MNI152
+# (scripts/02b_preprocess_v2.py). The original IXI_preprocessed failed alignment QC.
+DEFAULT_VOLUME_SUBDIR = "IXI_preprocessed_v2"
+
 # Reading ~20 MB volumes from Drive every epoch is slow. On Colab they are copied
-# once to the VM's local disk. Set to None to always read straight from Drive.
+# once to the VM's local disk (one sub-folder per volume version, so v1 and v2
+# files never mix). Set to None to always read straight from Drive.
 DEFAULT_CACHE_DIR = Path("/content/ixi_cache") if IN_COLAB else None
 
 CONFIG = {
@@ -70,12 +76,13 @@ CONFIG = {
     "stage1_epochs": 5,
     "stage1_lr": 1e-3,
 
-    # Stage 2: everything trains, low learning rate (backbone lower still)
-    "stage2_max_epochs": 40,
-    "stage2_lr_head": 1e-4,
-    "stage2_lr_backbone": 1e-5,
-    "early_stop_patience": 8,    # stage-2 epochs without val MAE improvement
-    "plateau_patience": 3,       # halve the LR after this many epochs without improvement
+    # Stage 2: everything trains, lower learning rate for the backbone.
+    # (Run 1 used 1e-5 / 1e-4 with patience 8 and stopped while still predicting the mean.)
+    "stage2_max_epochs": 60,
+    "stage2_lr_head": 1e-3,
+    "stage2_lr_backbone": 1e-4,
+    "early_stop_patience": 15,   # stage-2 epochs without val MAE improvement
+    "plateau_patience": 5,       # halve the LR after this many epochs without improvement
 
     "weight_decay": 1e-3,
     "use_amp": True,             # mixed precision (only applied on GPU)
@@ -88,18 +95,33 @@ SMOKE_OVERRIDES = {
 }
 SMOKE_N_SUBJECTS = 8
 
+# Overfit test: train and "validate" on the same 16 train subjects with no augmentation.
+# A working pipeline should drive MAE on them well below the ~14-year guess-the-mean level.
+OVERFIT_OVERRIDES = {
+    "stage1_epochs": 0,
+    "stage2_max_epochs": 60,
+    "early_stop_patience": 10**9,
+    "max_shift": 0,
+    "num_workers": 0,
+}
+OVERFIT_N_SUBJECTS = 16
+
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Fine-tune SFCN on IXI (train/val only).")
     parser.add_argument("--smoke", action="store_true",
                         help="Run 1 epoch per stage on 8 train / 8 val subjects to check the pipeline.")
+    parser.add_argument("--overfit", action="store_true",
+                        help="Train and evaluate on the same 16 train subjects to check the model can learn at all.")
+    parser.add_argument("--volume-subdir", default=DEFAULT_VOLUME_SUBDIR,
+                        help="Folder of preprocessed .npy volumes inside --project-dir.")
     parser.add_argument("--project-dir", type=Path,
                         default=Path(os.environ.get("BRAINAGE_PROJECT_DIR", DEFAULT_PROJECT_DIR)))
     parser.add_argument("--sfcn-repo", type=Path,
                         default=Path(os.environ.get("BRAINAGE_SFCN_REPO", DEFAULT_SFCN_REPO)))
     parser.add_argument("--checkpoint-dir", type=Path,
                         default=os.environ.get("BRAINAGE_CHECKPOINT_DIR"),
-                        help="Defaults to <project-dir>/checkpoints/sfcn_finetune[_smoke].")
+                        help="Defaults to <project-dir>/checkpoints/sfcn_finetune[_smoke|_overfit].")
     parser.add_argument("--cache-dir", type=Path, default=DEFAULT_CACHE_DIR,
                         help="Local copy of the .npy volumes for faster reads.")
     parser.add_argument("--no-cache", action="store_true", help="Read volumes straight from --project-dir.")
@@ -300,13 +322,14 @@ def kl_loss(log_probs, target_probs):
     return F.kl_div(log_probs.float(), target_probs, reduction="batchmean")
 
 
-def train_one_epoch(model, loader, optimizer, scaler, edges, sigma, device, use_amp, backbone_frozen):
+def train_one_epoch(model, loader, optimizer, scaler, edges, bin_centers_t, sigma, device, use_amp,
+                    backbone_frozen):
     model.train()
     if backbone_frozen:
         # Keep the frozen BatchNorm running statistics fixed at their pretrained values.
         model.feature_extractor.eval()
 
-    total_loss, n_seen = 0.0, 0
+    total_loss, total_abs_err, n_seen = 0.0, 0.0, 0
     for volumes, ages, _ in loader:
         volumes = volumes.to(device, non_blocking=True)
         targets = torch.from_numpy(soft_labels(ages.numpy(), edges, sigma)).to(device)
@@ -321,8 +344,11 @@ def train_one_epoch(model, loader, optimizer, scaler, edges, sigma, device, use_
         scaler.update()
 
         total_loss += loss.item() * volumes.size(0)
+        # Running MAE in train mode (dropout + augmentation on), so a bit pessimistic.
+        preds = predict_ages(log_probs.detach(), bin_centers_t).cpu()
+        total_abs_err += (preds - ages).abs().sum().item()
         n_seen += volumes.size(0)
-    return total_loss / n_seen
+    return total_loss / n_seen, total_abs_err / n_seen
 
 
 @torch.no_grad()
@@ -377,9 +403,14 @@ def save_checkpoint(path, model, epoch, stage, metrics, config):
 
 def main():
     args = parse_args()
+    if args.smoke and args.overfit:
+        raise SystemExit("Use either --smoke or --overfit, not both.")
+    mode = "smoke" if args.smoke else "overfit" if args.overfit else "full"
     config = dict(CONFIG)
     if args.smoke:
         config.update(SMOKE_OVERRIDES)
+    if args.overfit:
+        config.update(OVERFIT_OVERRIDES)
     if args.batch_size:
         config["batch_size"] = args.batch_size
     if args.num_workers is not None:
@@ -391,15 +422,16 @@ def main():
 
     project_dir = args.project_dir
     checkpoint_dir = args.checkpoint_dir or (
-        project_dir / "checkpoints" / ("sfcn_finetune_smoke" if args.smoke else "sfcn_finetune")
+        project_dir / "checkpoints" / ("sfcn_finetune" if mode == "full" else f"sfcn_finetune_{mode}")
     )
     checkpoint_dir.mkdir(parents=True, exist_ok=True)
     best_path = checkpoint_dir / "best.pt"
     history_path = checkpoint_dir / "history.csv"
     preds_path = checkpoint_dir / "val_predictions.csv"
 
-    print(f"Device: {device} | AMP: {use_amp} | smoke: {args.smoke}")
+    print(f"Device: {device} | AMP: {use_amp} | mode: {mode}")
     print(f"Project dir: {project_dir}")
+    print(f"Volumes: {args.volume_subdir}")
     print(f"Checkpoints: {checkpoint_dir}")
 
     # ---- Data (train + val only; the test split is deliberately never loaded) ----
@@ -412,6 +444,10 @@ def main():
     if args.smoke:
         train_df = train_df.sample(SMOKE_N_SUBJECTS, random_state=config["seed"])
         val_df = val_df.sample(SMOKE_N_SUBJECTS, random_state=config["seed"])
+    if args.overfit:
+        # Deliberately evaluate on the training subjects: this checks learning, not generalisation.
+        train_df = train_df.sample(OVERFIT_N_SUBJECTS, random_state=config["seed"])
+        val_df = train_df.copy()
 
     lo, hi = config["bin_range"]
     for name, df in [("train", train_df), ("val", val_df)]:
@@ -420,9 +456,9 @@ def main():
             raise ValueError(f"{len(out_of_range)} {name} subjects fall outside the {lo}-{hi} age bins")
     print(f"Train: {len(train_df)} | Val: {len(val_df)}")
 
-    cache_dir = None if args.no_cache else args.cache_dir
-    all_ids = pd.concat([train_df["IXI_ID"], val_df["IXI_ID"]]).astype(int).tolist()
-    volume_dir = prepare_volume_dir(project_dir / "IXI_preprocessed", cache_dir, all_ids)
+    cache_dir = None if args.no_cache or args.cache_dir is None else args.cache_dir / args.volume_subdir
+    all_ids = sorted(set(pd.concat([train_df["IXI_ID"], val_df["IXI_ID"]]).astype(int)))
+    volume_dir = prepare_volume_dir(project_dir / args.volume_subdir, cache_dir, all_ids)
 
     generator = torch.Generator().manual_seed(config["seed"])
     loader_kwargs = dict(
@@ -456,8 +492,8 @@ def main():
     def run_epoch(stage, epoch, optimizer, backbone_frozen):
         nonlocal best_mae
         start = time.time()
-        train_loss = train_one_epoch(model, train_loader, optimizer, scaler, edges, sigma,
-                                     device, use_amp, backbone_frozen)
+        train_loss, train_mae = train_one_epoch(model, train_loader, optimizer, scaler, edges,
+                                                bin_centers_t, sigma, device, use_amp, backbone_frozen)
         val = evaluate(model, val_loader, edges, bin_centers_t, sigma, device, use_amp)
         improved = val["mae"] < best_mae
         if improved:
@@ -467,12 +503,14 @@ def main():
         lrs = [g["lr"] for g in optimizer.param_groups]
         history.append({
             "stage": stage, "epoch": epoch, "lr": max(lrs), "train_loss": train_loss,
-            "val_loss": val["loss"], "val_mae": val["mae"], "val_r": val["r"],
+            "train_mae": train_mae, "val_loss": val["loss"], "val_mae": val["mae"], "val_r": val["r"],
+            "val_pred_std": float(np.std(val["preds"])),
             "seconds": round(time.time() - start, 1),
         })
         pd.DataFrame(history).to_csv(history_path, index=False)
-        print(f"[stage {stage}] epoch {epoch:3d} | train loss {train_loss:.4f} | val loss {val['loss']:.4f} "
-              f"| val MAE {val['mae']:.2f} | val r {val['r']:.3f} | {time.time() - start:.0f}s"
+        print(f"[stage {stage}] epoch {epoch:3d} | train loss {train_loss:.4f} MAE {train_mae:.2f} "
+              f"| val loss {val['loss']:.4f} MAE {val['mae']:.2f} r {val['r']:.3f} "
+              f"pred sd {np.std(val['preds']):.1f} | {time.time() - start:.0f}s"
               f"{'  <- best' if improved else ''}")
         return val, improved
 
@@ -524,15 +562,19 @@ def main():
         "best_epoch": best["epoch"], "best_stage": best["stage"],
         "val_mae": val["mae"], "val_mae_95ci": list(map(float, mae_ci)),
         "val_r": val["r"], "val_r_95ci": list(map(float, r_ci)),
-        "n_val": len(val["ids"]), "smoke": args.smoke, "config": config,
+        "val_pred_std": float(np.std(val["preds"])), "val_age_std": float(np.std(val["ages"])),
+        "n_val": len(val["ids"]), "mode": mode, "volume_subdir": args.volume_subdir, "config": config,
     }
     with open(checkpoint_dir / "summary.json", "w") as f:
         json.dump(summary, f, indent=2, default=str)
 
     print()
+    if mode == "overfit":
+        print("OVERFIT TEST - 'val' below is the same 16 TRAINING subjects (checks learning, not generalisation).")
     print(f"Best checkpoint: epoch {best['epoch']} (stage {best['stage']}) -> {best_path}")
     print(f"Val MAE {val['mae']:.2f} yrs (95% CI {mae_ci[0]:.2f}-{mae_ci[1]:.2f}) | "
           f"val r {val['r']:.3f} (95% CI {r_ci[0]:.3f}-{r_ci[1]:.3f}) | n={len(val['ids'])}")
+    print(f"Prediction spread (sd) {np.std(val['preds']):.1f} yrs vs real age spread {np.std(val['ages']):.1f} yrs")
     print(f"Val predictions: {preds_path}")
     print(f"History: {history_path}")
 
