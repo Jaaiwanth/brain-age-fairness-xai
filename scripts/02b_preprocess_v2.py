@@ -92,6 +92,9 @@ def init_worker(template_t1_path, template_mask_path, itk_threads):
     mask_np = center_crop(_TEMPLATE["mask"].numpy() > 0, TARGET_SHAPE)
     _TEMPLATE["mask_cropped"] = mask_np
     _TEMPLATE["centre"], _TEMPLATE["size"] = centre_and_size(mask_np)
+    # The template brain itself reaches the bottom face after the standard crop (the
+    # lower brainstem extends below it), so only faces it does NOT touch count as cut-off.
+    _TEMPLATE["faces_touched"] = {face for face, n in face_voxels(mask_np).items() if n}
 
 
 def center_crop(volume, target_shape):
@@ -107,6 +110,15 @@ def center_crop(volume, target_shape):
 def centre_and_size(mask):
     idx = np.argwhere(mask)
     return idx.mean(axis=0), idx.max(axis=0) - idx.min(axis=0) + 1
+
+
+def face_voxels(mask):
+    """Number of mask voxels on each of the six faces of the volume."""
+    return {
+        "x_first": int(mask[0].sum()), "x_last": int(mask[-1].sum()),
+        "y_first": int(mask[:, 0].sum()), "y_last": int(mask[:, -1].sum()),
+        "z_first": int(mask[:, :, 0].sum()), "z_last": int(mask[:, :, -1].sum()),
+    }
 
 
 def save_npy_atomic(path, array):
@@ -155,10 +167,9 @@ def preprocess_one(ixi_id, site, scan_path, out_path, qc_path):
     dice = float(2 * (mask_np & template_mask).sum() / (mask_np.sum() + template_mask.sum()))
     centre, size = centre_and_size(mask_np)
     offset_mm = float(np.linalg.norm(centre - _TEMPLATE["centre"]))
-    touches_edge = bool(
-        mask_np[0].any() or mask_np[-1].any() or mask_np[:, 0].any() or mask_np[:, -1].any()
-        or mask_np[:, :, 0].any() or mask_np[:, :, -1].any()
-    )
+    faces = face_voxels(mask_np)
+    cut_faces = sorted(f for f, n in faces.items() if n and f not in _TEMPLATE["faces_touched"])
+    touches_edge = bool(cut_faces)
     reasons = []
     if dice < QC_MIN_DICE:
         reasons.append(f"dice<{QC_MIN_DICE}")
@@ -176,7 +187,8 @@ def preprocess_one(ixi_id, site, scan_path, out_path, qc_path):
         "size_x": int(size[0]), "size_y": int(size[1]), "size_z": int(size[2]),
         "template_size_x": int(_TEMPLATE["size"][0]), "template_size_y": int(_TEMPLATE["size"][1]),
         "template_size_z": int(_TEMPLATE["size"][2]),
-        "touches_edge": touches_edge, "native_brain_volume_ml": round(native_volume_ml, 1),
+        "touches_edge": touches_edge, "cut_faces": ";".join(cut_faces),
+        "bottom_face_voxels": faces["z_first"], "native_brain_volume_ml": round(native_volume_ml, 1),
         "qc_flag": bool(reasons), "qc_reasons": ";".join(reasons),
         "seconds": round(time.time() - start, 1),
     }
