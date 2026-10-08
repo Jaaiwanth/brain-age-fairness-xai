@@ -208,6 +208,21 @@ def get_template_paths():
     return Path(t1), Path(mask)
 
 
+def resolve_scan_path(path):
+    """Return the .nii file for an IXI_data entry.
+
+    The entry is either the scan file itself, or (as unpacked from the Kaggle mirror)
+    a folder named like the scan, e.g. IXI002-Guys-0828-T1.nii/, holding one .nii file.
+    """
+    if not path.is_dir():
+        return path
+    inner = sorted(p for p in path.iterdir()
+                   if p.is_file() and p.name.lower().endswith((".nii", ".nii.gz")))
+    if len(inner) != 1:
+        raise FileNotFoundError(f"{path} is a folder with {len(inner)} .nii files; expected exactly 1")
+    return inner[0]
+
+
 def save_worst_montage(qc_df, volume_dir, out_path, n=12):
     import matplotlib
     matplotlib.use("Agg")
@@ -251,6 +266,7 @@ def main():
     missing = meta[~meta["scan_path"].map(Path.exists)]
     if len(missing):
         raise FileNotFoundError(f"{len(missing)} raw scans missing in {data_dir}, e.g. {missing.iloc[0]['filename']}")
+    meta["scan_path"] = meta["scan_path"].map(resolve_scan_path)
 
     out_dir.mkdir(parents=True, exist_ok=True)
     qc_dir.mkdir(parents=True, exist_ok=True)
