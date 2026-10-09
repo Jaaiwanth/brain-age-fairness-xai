@@ -54,6 +54,9 @@ SFCN_WEIGHTS_RELPATH = Path("brain_age") / "run_20190719_00_epoch_best_mae.p"
 # (scripts/02b_preprocess_v2.py). The original IXI_preprocessed failed alignment QC.
 DEFAULT_VOLUME_SUBDIR = "IXI_preprocessed_v2"
 
+# SFCN normalises by the mean over the uncropped FSL MNI152 1mm box (182x218x182).
+SFCN_NORMALISATION_VOXELS = 182 * 218 * 182
+
 # Reading ~20 MB volumes from Drive every epoch is slow. On Colab they are copied
 # once to the VM's local disk (one sub-folder per volume version, so v1 and v2
 # files never mix). Set to None to always read straight from Drive.
@@ -265,8 +268,11 @@ class IXIDataset(Dataset):
         if self.augment and self.max_shift > 0:
             volume = random_shift(volume, self.max_shift, np.random.default_rng(np.random.randint(2**31)))
 
-        # SFCN convention: divide each volume by its own mean intensity.
-        mean = volume.mean()
+        # SFCN convention (examples.ipynb in its repo): divide by the mean over the FULL
+        # 182x218x182 MNI box, then crop. Our volumes are already cropped, so use the sum
+        # over the full-box voxel count; the mean of the cropped volume is ~1.47x larger.
+        # Getting this wrong made pretrained SFCN output ~the same age for every brain.
+        mean = volume.sum() / SFCN_NORMALISATION_VOXELS
         if mean <= 0:
             raise ValueError(f"IXI{self.ids[idx]:03d}: non-positive mean intensity")
         volume = volume / mean

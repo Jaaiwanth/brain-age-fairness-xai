@@ -32,11 +32,18 @@ Audit whether a brain-age model is fair beyond accuracy (working title: *"Right 
   - DeepBrainNet: MAE 13.53 yrs, Pearson r 0.36 (p ≈ 0.38).
   - Both compress predictions into ~50–68 yrs. n = 8 is too small to be conclusive.
   - SFCN is kept because its failure was largely caused by fixable mismatches (the 42–82 bin range, which fine-tuning replaces with 20–90, and preprocessing). It is also 3D, so Grad-CAM needs no per-slice aggregation.
-- **Phase 4 (fine-tuning): first run failed, waiting on v2 data.** `scripts/04_finetune_sfcn.py` on v1 data:
-  - Val MAE 14.73 yrs (95% CI 12.87–16.54), r 0.29.
-  - Predictions spread only 2.7 yrs (sd) against a real-age sd of 17.4. In effect the model guessed the mean (guessing the train mean gives MAE 15.3).
-  - Causes: v1 misalignment, plus too-cautious stage-2 settings, which have since been raised.
-  - Next: on Colab, unzip `IXI_preprocessed_v2.zip` to local disk and pass `--volume-dir`; run `--overfit`, then `--smoke`, then the full run.
+- **Phase 4 (fine-tuning): in progress; two runs failed, cause of the second now fixed.** `scripts/04_finetune_sfcn.py`.
+  - **Run 1 (v1 data):** val MAE 14.73 yrs (95% CI 12.87–16.54), r 0.29. Predictions spread only 2.7 yrs (sd) against a real-age sd of 17.4, so in effect the model guessed the mean (guessing the train mean gives MAE 15.3). Causes: v1 misalignment, plus too-cautious stage-2 settings, which were then raised.
+  - **Overfit check (v2 data, 16 train subjects):** MAE fell from 19.4 to 4.4 yrs, r 0.95. The pipeline can learn.
+  - **Run 2 (v2 data, 347 train / 75 val, results in `BrainAge_Project/checkpoints/sfcn_finetune/`):** val MAE 13.37 yrs (95% CI 11.30–15.53), r 0.33, prediction sd 7.7. Train MAE fell to 5.7: memorised, did not generalise. In stage 1 (frozen backbone), validation predictions varied by only 0.6 yrs.
+  - **Cause of run 2's failure: input scaling.** SFCN's own example divides each scan by its mean over the full 182×218×182 box *before* cropping. We divided by the mean of the cropped volume, so inputs were ~1.47× too small. On 30 validation scans (2026-10-09), the original, un-fine-tuned SFCN gives:
+    - our old scaling: r 0.01, prediction spread 0.6 yrs (near-constant output);
+    - SFCN's scaling (×1.47): r 0.39, spread 6.6 yrs;
+    - ×0.5 or ×3: constant again;
+    - mirroring left-right (TemplateFlow stores the template RAS, FSL LAS): no effect.
+
+    The training script now divides by the sum over the full-box voxel count (`SFCN_NORMALISATION_VOXELS`). The volumes themselves are unchanged.
+  - Next: on Colab, re-run `--overfit` (sanity), then the full run.
 - **Phases 5–8 (evaluation, fairness audit, XAI, report): not started.**
 
 ## Data location
