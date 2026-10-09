@@ -91,14 +91,20 @@ Hospital/site information is embedded directly in each scan's filename (e.g., `I
 
 ```
 PHASE 1 — Setup & Data                         [complete]
-  → 581 IXI T1 scans; 499 matched to real demographics
+  → 581 IXI T1 scans; 502 have a demographics row, 3 of them with no age
+    (IXI302, IXI386, IXI550) → 499 usable
+  → An older metadata file lists 525 rows: the same 502 subjects plus 23
+    duplicate rows from the IXI demographics sheet (not corrupted files)
+  → IXI192 and IXI290 have contradictory duplicate rows (age; sex) and are
+    excluded from training and evaluation
 
-PHASE 2 — Preprocessing (pretrained-model-compatible)  [re-running: v2]
+PHASE 2 — Preprocessing (pretrained-model-compatible)  [complete: v2]
   → v1 (whole-head registration to nilearn's skull-stripped MNI template)
     failed an alignment check: brains up to 18 mm out of place, IOP worst
   → v2: skull-strip first, brain-to-brain affine registration to
     FSL MNI152 1mm (SFCN's template), crop, per-scan QC
-    (scripts/02b_preprocess_v2.py)
+    (scripts/02b_preprocess_v2.py). All 502 scans, 0 failures:
+    Dice median 0.958 (min 0.941), centre offset median 0.7 mm (max 1.9)
   → Train/Val/Test split, stratified by sex + site: 349 / 75 / 75
 
 PHASE 3 — Pretrained Model Validation                  [complete: SFCN kept]

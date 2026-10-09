@@ -106,6 +106,13 @@ OVERFIT_OVERRIDES = {
 }
 OVERFIT_N_SUBJECTS = 16
 
+# Subjects left out of training and evaluation. The IXI demographics sheet has two
+# contradictory rows for each, so their true age/sex is unknown.
+EXCLUDED_SUBJECTS = {
+    192: "two different ages in the IXI demographics (53.1 and 58.1)",
+    290: "listed as both female and male in the IXI demographics",
+}
+
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Fine-tune SFCN on IXI (train/val only).")
@@ -165,6 +172,30 @@ def load_split(project_dir, name):
     if missing:
         raise ValueError(f"{path.name} is missing columns: {sorted(missing)}")
     return df
+
+
+def check_labels_against_metadata(project_dir, splits):
+    """Refuse to train if a split's age/sex labels disagree with ixi_final_metadata.csv.
+
+    Guards against split files whose labels were attached to the wrong subjects.
+    """
+    path = project_dir / "ixi_final_metadata.csv"
+    if not path.exists():
+        print(f"Warning: {path.name} not found; skipping the label cross-check.")
+        return
+    meta = pd.read_csv(path).drop_duplicates("IXI_ID").set_index("IXI_ID")
+    for name, df in splits.items():
+        m = meta.reindex(df["IXI_ID"].astype(int))
+        bad = (m["AGE"].isna().to_numpy()
+               | (np.abs(m["AGE"].to_numpy() - df["AGE"].to_numpy()) > 1e-3)
+               | (m["sex_label"].to_numpy() != df["sex_label"].to_numpy()))
+        if bad.any():
+            raise ValueError(
+                f"{int(bad.sum())}/{len(df)} {name} subjects have an age/sex that disagrees with "
+                f"{path.name}, e.g. IXI{int(df['IXI_ID'][bad].iloc[0]):03d}. The split file is not "
+                "the one built from this metadata - do not train on it."
+            )
+    print("Split labels match the metadata.")
 
 
 def volume_path(volume_dir, ixi_id):
@@ -443,6 +474,14 @@ def main():
     overlap = set(train_df["IXI_ID"]) & set(val_df["IXI_ID"])
     if overlap:
         raise ValueError(f"{len(overlap)} subjects appear in both train and val")
+    check_labels_against_metadata(project_dir, {"train": train_df, "val": val_df})
+
+    for i, reason in EXCLUDED_SUBJECTS.items():
+        for name, df in [("train", train_df), ("val", val_df)]:
+            if i in set(df["IXI_ID"]):
+                print(f"Excluding IXI{i:03d} from {name}: {reason}")
+    train_df = train_df[~train_df["IXI_ID"].isin(EXCLUDED_SUBJECTS)].reset_index(drop=True)
+    val_df = val_df[~val_df["IXI_ID"].isin(EXCLUDED_SUBJECTS)].reset_index(drop=True)
 
     if args.smoke:
         train_df = train_df.sample(SMOKE_N_SUBJECTS, random_state=config["seed"])
