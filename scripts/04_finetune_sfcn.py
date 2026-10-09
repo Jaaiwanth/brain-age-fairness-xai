@@ -115,6 +115,9 @@ def parse_args():
                         help="Train and evaluate on the same 16 train subjects to check the model can learn at all.")
     parser.add_argument("--volume-subdir", default=DEFAULT_VOLUME_SUBDIR,
                         help="Folder of preprocessed .npy volumes inside --project-dir.")
+    parser.add_argument("--volume-dir", type=Path, default=None,
+                        help="Read the .npy volumes from this folder directly (e.g. unzipped on the Colab "
+                             "VM's local disk), instead of <project-dir>/<volume-subdir>. Disables caching.")
     parser.add_argument("--project-dir", type=Path,
                         default=Path(os.environ.get("BRAINAGE_PROJECT_DIR", DEFAULT_PROJECT_DIR)))
     parser.add_argument("--sfcn-repo", type=Path,
@@ -456,9 +459,13 @@ def main():
             raise ValueError(f"{len(out_of_range)} {name} subjects fall outside the {lo}-{hi} age bins")
     print(f"Train: {len(train_df)} | Val: {len(val_df)}")
 
-    cache_dir = None if args.no_cache or args.cache_dir is None else args.cache_dir / args.volume_subdir
     all_ids = sorted(set(pd.concat([train_df["IXI_ID"], val_df["IXI_ID"]]).astype(int)))
-    volume_dir = prepare_volume_dir(project_dir / args.volume_subdir, cache_dir, all_ids)
+    if args.volume_dir:
+        volume_dir = prepare_volume_dir(args.volume_dir, None, all_ids)
+    else:
+        cache_dir = None if args.no_cache or args.cache_dir is None else args.cache_dir / args.volume_subdir
+        volume_dir = prepare_volume_dir(project_dir / args.volume_subdir, cache_dir, all_ids)
+    print(f"Volumes: {volume_dir}")
 
     generator = torch.Generator().manual_seed(config["seed"])
     loader_kwargs = dict(
