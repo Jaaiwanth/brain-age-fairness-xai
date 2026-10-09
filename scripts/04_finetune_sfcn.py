@@ -66,8 +66,9 @@ CONFIG = {
     "seed": 42,
     "input_shape": (160, 192, 160),
 
-    # Age bins: 20-90 years, 1-year bins -> 70 bins, centres 20.5 ... 89.5
-    "bin_range": (20, 90),
+    # Age bins: 18-90 years, 1-year bins -> 72 bins, centres 18.5 ... 89.5.
+    # (The youngest IXI subject, IXI425, is 19.98 by the official IXI.xls.)
+    "bin_range": (18, 90),
     "bin_step": 1,
     "label_sigma": 2.0,          # width (years) of the Gaussian soft label
 
