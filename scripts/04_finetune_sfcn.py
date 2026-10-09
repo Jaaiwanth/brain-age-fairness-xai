@@ -140,6 +140,9 @@ def parse_args():
     parser.add_argument("--cache-dir", type=Path, default=DEFAULT_CACHE_DIR,
                         help="Local copy of the .npy volumes for faster reads.")
     parser.add_argument("--no-cache", action="store_true", help="Read volumes straight from --project-dir.")
+    parser.add_argument("--exclude-site", choices=["Guys", "HH", "IOP"], default=None,
+                        help="Leave-one-site-out: train and early-stop without this site, then predict "
+                             "its train+val subjects (never the test split) into heldout_predictions.csv.")
     parser.add_argument("--batch-size", type=int, default=None)
     parser.add_argument("--num-workers", type=int, default=None)
     return parser.parse_args()
@@ -491,9 +494,21 @@ def main():
     train_df = train_df[~train_df["IXI_ID"].isin(EXCLUDED_SUBJECTS)].reset_index(drop=True)
     val_df = val_df[~val_df["IXI_ID"].isin(EXCLUDED_SUBJECTS)].reset_index(drop=True)
 
+    heldout_df = None
+    if args.exclude_site:
+        site = args.exclude_site
+        heldout_df = pd.concat([train_df[train_df["site"] == site], val_df[val_df["site"] == site]],
+                               ignore_index=True)
+        train_df = train_df[train_df["site"] != site].reset_index(drop=True)
+        val_df = val_df[val_df["site"] != site].reset_index(drop=True)
+        print(f"Leave-one-site-out: {site} removed from training and early stopping; "
+              f"{len(heldout_df)} {site} train+val subjects held out for prediction.")
+
     if args.smoke:
         train_df = train_df.sample(SMOKE_N_SUBJECTS, random_state=config["seed"])
         val_df = val_df.sample(SMOKE_N_SUBJECTS, random_state=config["seed"])
+        if heldout_df is not None:
+            heldout_df = heldout_df.sample(SMOKE_N_SUBJECTS, random_state=config["seed"])
     if args.overfit:
         # Deliberately evaluate on the training subjects: this checks learning, not generalisation.
         train_df = train_df.sample(OVERFIT_N_SUBJECTS, random_state=config["seed"])
@@ -506,7 +521,8 @@ def main():
             raise ValueError(f"{len(out_of_range)} {name} subjects fall outside the {lo}-{hi} age bins")
     print(f"Train: {len(train_df)} | Val: {len(val_df)}")
 
-    all_ids = sorted(set(pd.concat([train_df["IXI_ID"], val_df["IXI_ID"]]).astype(int)))
+    id_frames = [train_df["IXI_ID"], val_df["IXI_ID"]] + ([heldout_df["IXI_ID"]] if heldout_df is not None else [])
+    all_ids = sorted(set(pd.concat(id_frames).astype(int)))
     if args.volume_dir:
         volume_dir = prepare_volume_dir(args.volume_dir, None, all_ids)
     else:
@@ -611,13 +627,27 @@ def main():
     })
     preds_df.to_csv(preds_path, index=False)
 
+    if heldout_df is not None:
+        held_loader = DataLoader(IXIDataset(heldout_df, volume_dir, config["input_shape"], augment=False),
+                                 shuffle=False, **loader_kwargs)
+        held = evaluate(model, held_loader, edges, bin_centers_t, sigma, device, use_amp)
+        hmeta = heldout_df.set_index(heldout_df["IXI_ID"].astype(int))
+        pd.DataFrame({
+            "IXI_ID": held["ids"], "age": held["ages"], "predicted_age": held["preds"],
+            "sex": hmeta.loc[held["ids"], "sex_label"].to_numpy(),
+            "site": hmeta.loc[held["ids"], "site"].to_numpy(),
+        }).to_csv(checkpoint_dir / "heldout_predictions.csv", index=False)
+        print(f"Held-out {args.exclude_site} (never seen in training): MAE {held['mae']:.2f} yrs | "
+              f"r {held['r']:.3f} | mean (pred - age) {np.mean(held['preds'] - held['ages']):+.2f} | "
+              f"n={len(held['ids'])}")
+
     mae_ci, r_ci = bootstrap_ci(val["ages"], val["preds"])
     summary = {
         "best_epoch": best["epoch"], "best_stage": best["stage"],
         "val_mae": val["mae"], "val_mae_95ci": list(map(float, mae_ci)),
         "val_r": val["r"], "val_r_95ci": list(map(float, r_ci)),
         "val_pred_std": float(np.std(val["preds"])), "val_age_std": float(np.std(val["ages"])),
-        "n_val": len(val["ids"]), "mode": mode, "volume_subdir": args.volume_subdir, "config": config,
+        "n_val": len(val["ids"]), "mode": mode, "exclude_site": args.exclude_site, "volume_subdir": args.volume_subdir, "config": config,
     }
     with open(checkpoint_dir / "summary.json", "w") as f:
         json.dump(summary, f, indent=2, default=str)
