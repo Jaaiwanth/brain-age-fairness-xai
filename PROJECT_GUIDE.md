@@ -29,12 +29,15 @@ Audit whether a brain-age model is fair beyond accuracy (working title: *"Right 
     - IXI457 flagged for native brain volume 2,024 mL, just over the 2,000 mL check; looks normal on inspection. Kept.
     - IXI292 (IOP) is visibly blurrier as acquired. That is an acquisition-site effect, not a preprocessing failure.
 - **Phase 3 (zero-shot validation): decision SFCN stands; the original numbers are invalid** (old labels, v1 data). On v2 data with SFCN's input scaling and the official labels, the original un-fine-tuned SFCN on 30 validation subjects gives **r 0.93** (r 0.82 and MAE 4.6 yrs within its 45–80 training range). SFCN is also 3D, so Grad-CAM needs no per-slice aggregation.
-- **Phase 4 (fine-tuning): ready to re-run with correct labels.** `scripts/04_finetune_sfcn.py`.
+- **Phase 4 (fine-tuning): done (2026-10-09).** `scripts/04_finetune_sfcn.py`, v2 volumes, official labels, 339 train / 73 val, age bins 18–90 (72 bins).
+  - **Val MAE 3.90 yrs (95% CI 3.23–4.60), r 0.961 (95% CI 0.946–0.974)**, prediction sd 14.2 vs real-age sd 16.4. Best epoch 30 (stage 2); early stop at 45. Train MAE ~2.7 by the end, so a modest train/val gap.
+  - Already in stage 1 (frozen backbone) val r was 0.84–0.87.
+  - The checkpoint was selected on val MAE, so 3.90 is slightly optimistic; the test set gives the unbiased figure.
+  - Results: `BrainAge_Project/checkpoints/sfcn_finetune_official/` (`best.pt`, `history.csv`, `val_predictions.csv`, `summary.json`).
   - Runs 1–3 (2026-10-08/09) all trained on the wrong labels and are discarded. They "memorised but did not generalise" (e.g. run 3: train MAE 6.6, val MAE 13.3 in eval mode), which is what mislabelled data produces.
   - Two genuine fixes found along the way are kept:
     - v2 preprocessing (above);
     - input scaling: SFCN's own example divides each scan by its mean over the full 182×218×182 box *before* cropping. We divided by the cropped volume's mean, so inputs were ~1.47× too small and the pretrained SFCN gave near-constant output (prediction spread 0.6 yrs vs 6.6 yrs with SFCN's scaling). The script now divides by the sum over the full-box voxel count (`SFCN_NORMALISATION_VOXELS`). Left-right mirroring (TemplateFlow stores the template RAS, FSL LAS) made no difference.
-  - Next: on Colab, the full run with the corrected metadata and split files.
 - **Phases 5–8 (evaluation, fairness audit, XAI, report): not started.**
 
 ## Data location
