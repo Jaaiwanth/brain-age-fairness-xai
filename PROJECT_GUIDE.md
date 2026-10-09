@@ -38,7 +38,12 @@ Audit whether a brain-age model is fair beyond accuracy (working title: *"Right 
   - Two genuine fixes found along the way are kept:
     - v2 preprocessing (above);
     - input scaling: SFCN's own example divides each scan by its mean over the full 182×218×182 box *before* cropping. We divided by the cropped volume's mean, so inputs were ~1.47× too small and the pretrained SFCN gave near-constant output (prediction spread 0.6 yrs vs 6.6 yrs with SFCN's scaling). The script now divides by the sum over the full-box voxel count (`SFCN_NORMALISATION_VOXELS`). Left-right mirroring (TemplateFlow stores the template RAS, FSL LAS) made no difference.
-- **Phases 5–8 (evaluation, fairness audit, XAI, report): not started.**
+- **Phase 5 (test evaluation): done, once (2026-10-09).** `scripts/05_evaluate_test.py` on the frozen Phase 4 checkpoint (epoch 30); results in `results/phase5/`.
+  - Test n = 73. Raw: MAE 3.71 yrs (95% CI 3.10–4.38), RMSE 4.66 (3.93–5.40), r 0.966 (0.952–0.978), mean BAG −0.87.
+  - Age-bias correction (Cole et al. 2018) fitted on validation only: pred = 0.832·age + 8.30. Corrected: MAE 3.89 (3.20–4.61), r 0.966. The age–BAG correlation falls from −0.49 to +0.17; MAE rises slightly, as expected for this correction. Phase 6 uses the corrected BAG, with age also as a covariate.
+  - Test-set cleanliness: every SFCN pipeline decision (preprocessing, input scaling, age bins, training settings, checkpoint choice, bias-correction fit) was made on train/val only. Image-quality QC covered all scans, which Rule 7 allows. This holds whatever any teammate did with the same test subjects for other models.
+  - The model is now frozen. Any further change must be judged on validation only, and the test set must not be re-used to pick between versions.
+- **Phases 6–8 (fairness audit, XAI, report): not started.**
 
 ## Data location
 
