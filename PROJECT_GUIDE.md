@@ -43,7 +43,13 @@ Audit whether a brain-age model is fair beyond accuracy (working title: *"Right 
   - Age-bias correction (Cole et al. 2018) fitted on validation only: pred = 0.832·age + 8.30. Corrected: MAE 3.89 (3.20–4.61), r 0.966. The age–BAG correlation falls from −0.49 to +0.17; MAE rises slightly, as expected for this correction. Phase 6 uses the corrected BAG, with age also as a covariate.
   - Test-set cleanliness: every SFCN pipeline decision (preprocessing, input scaling, age bins, training settings, checkpoint choice, bias-correction fit) was made on train/val only. Image-quality QC covered all scans, which Rule 7 allows. This holds whatever any teammate did with the same test subjects for other models.
   - The model is now frozen. Any further change must be judged on validation only, and the test set must not be re-used to pick between versions.
-- **Phases 6–8 (fairness audit, XAI, report): not started.**
+- **Phase 6 (fairness audit): main analysis done (2026-10-09).** `scripts/06_fairness_audit.py` on the Phase 5 test predictions; results in `results/phase6/`. Test n = 73 (Guys 42, HH 22, IOP 9; 43 F / 30 M). Models control for age; 95% CIs from 5,000 bootstrap resamples (HC3 intervals agree).
+  - **Sex: no detectable difference.** Corrected BAG, male vs female: −0.59 yrs [−2.67, +1.64]. Absolute error: −0.64 yrs [−1.90, +0.59].
+  - **Acquisition-site effect at IOP.** Corrected BAG, IOP vs Guys: **−5.06 yrs [−8.66, −1.34]**, HC3 p = 0.012 (still below 0.05 after a Bonferroni correction for the three group terms). 8 of 9 IOP subjects have a negative BAG. Leaving out each IOP subject in turn gives −4.18 to −5.93, so no single subject drives it. HH vs Guys: +1.06 [−1.44, +3.53].
+  - **Accuracy by group: no CI excludes 0.** Absolute error, IOP vs Guys: +1.92 yrs [−1.36, +5.14]. The model is not detectably less accurate for any group; IOP brains are predicted systematically younger.
+  - Caveats: IOP n = 9, so the interval is wide. In IXI, site is confounded with the population each site recruited, so this design cannot separate scanner effects from cohort differences. It is an acquisition-site effect in the descriptive sense (Rule 2), not evidence about the people scanned (Rule 4).
+  - Next: leave-one-site-out training (3 Colab runs) to test whether the IOP offset persists when IOP is unseen; then Phase 7 (Grad-CAM attribution by site and sex).
+- **Phases 7–8 (XAI, report): not started.**
 
 ## Data location
 
