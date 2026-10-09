@@ -6,13 +6,14 @@ Audit whether a brain-age model is fair beyond accuracy (working title: *"Right 
 
 ## Current status (as of 2026-10-09)
 
-- **Phase 1 (data): done.** 581 IXI T1 scans; 499 usable subjects. Ages 20.0–86.3. Sites: Guys 282, HH 150, IOP 67.
-  - 502 scans have a demographics row; IXI302, IXI386 and IXI550 have no age, leaving 499.
-  - The old "525 subjects, 26 dropped for file corruption" was wrong. An older `ixi_final_metadata.csv` has 525 rows: the 502 subjects plus 23 duplicate rows copied from the IXI demographics sheet.
-  - **IXI192 and IXI290 are excluded** from training and evaluation (`EXCLUDED_SUBJECTS` in `scripts/04_finetune_sfcn.py`). Their duplicate rows contradict each other (IXI192: ages 53.1 and 58.1; IXI290: female and male), so the true label is unknown. Both are in the training split, which drops from 349 to 347.
-- **Phase 2 (preprocessing): done (v2).**
-  - Split 349 / 75 / 75 (train/val/test), stratified by site × sex. The split is unchanged by the re-run.
-  - **Use only split files that reproduce the Phase 2 notebook.** On 2026-10-09 a set of `ixi_train/val/test.csv` files turned up with 485 subjects (339/73/73) and every age attached to the wrong subject (e.g. IXI016 given subject 5's age). The correct files were rebuilt by re-running the notebook's split code on the metadata. They match its printed sizes, its site × sex table, and the Phase 3 test subjects and ages. The training script now refuses split files whose labels disagree with `ixi_final_metadata.csv`.
+- **Phase 1 (data): done; labels corrected on 2026-10-09.** 581 IXI T1 scans; 502 subjects with a scan in the demographics index; **488 with clean official labels**. Ages 20.0–86.3. Sites × sex: Guys 167 F / 109 M, HH 83 / 68, IOP 39 / 22.
+  - **The original Phase 1 labels were wrong.** The demographics file used in Phase 1 (`IXI_demographics.xls`, a third-party copy) has a `Subject_ID` column that is *not* the IXI ID, so every scan was paired with another person's age and sex. Against the official `IXI.xls`: 0/487 ages matched and sex matched at chance (242/490). The images agree with the official labels (CSF fraction vs age: r 0.64 official, 0.18 old).
+  - `scripts/01b_official_labels.py` rebuilds `ixi_final_metadata.csv` from the official `IXI.xls` (http://biomedic.doc.ic.ac.uk/brain-development/downloads/IXI/IXI.xls). The old file is kept as `ixi_final_metadata_OLD_wrong_labels.csv`.
+  - Dropped from the 502: 10 with no row in `IXI.xls` (81, 88, 117, 228, 333, 337, 340, 345, 347, 457), 2 with no age (341, 435), and 2 with contradictory duplicate rows (**IXI219**: ages 53.1 and 58.1; **IXI328**: female and male). The last two are also listed in `EXCLUDED_SUBJECTS` in `scripts/04_finetune_sfcn.py` as a safety net.
+  - Everything computed before 2026-10-09 with the old labels (Phase 3 zero-shot numbers, fine-tuning runs 1–3, the old "525 vs 499" explanations) is invalid.
+- **Phase 2 (preprocessing): done (v2).** Preprocessing does not use labels, so the v2 volumes are unaffected by the label error.
+  - **Split: 339 / 73 / 73 (train/val/test), 485 subjects**, from the shared team folder. Every age and sex matches the official `IXI.xls`; no overlap between splits; every subject has a v2 scan. It omits the 14 unusable subjects above plus IXI302, IXI386 and IXI550 (clean in `IXI.xls`, but not in this team split; kept out for consistency).
+  - The earlier 349 / 75 / 75 split was stratified on the wrong sex labels; its files are kept as `ixi_*_OLD_wrong_labels.csv`. The training script refuses split files whose labels disagree with `ixi_final_metadata.csv`.
   - **v1 (`IXI_preprocessed/`, do not use):** N4, then whole-head affine registration to nilearn's skull-stripped MNI 2009 template (197×233×189), skull-strip, clip to the 1st/99th percentile, rescale to [0, 1], centre-crop to 160×192×160. An alignment check on 40 train scans found:
     - brain centres a median 5.3 mm (up to 18.3 mm) from the group median;
     - top-to-bottom brain height ranging 76–131 mm;
@@ -27,23 +28,13 @@ Audit whether a brain-age model is fair beyond accuracy (working title: *"Right 
     - 36 scans flagged "cut off": a brain touches a crop face the template brain does not reach. Typically 0–1 voxels; worst IXI156, a 1 mm sliver at the back. Kept.
     - IXI457 flagged for native brain volume 2,024 mL, just over the 2,000 mL check; looks normal on inspection. Kept.
     - IXI292 (IOP) is visibly blurrier as acquired. That is an acquisition-site effect, not a preprocessing failure.
-- **Phase 3 (zero-shot validation): done. Decision: SFCN.** Same 8 test subjects for both models:
-  - SFCN: MAE 16.29 yrs, Pearson r −0.01. This underestimates the model. The bin range was UK Biobank's `[42, 82]`, so it couldn't predict below 42, and the v1 input didn't match SFCN's preprocessing.
-  - DeepBrainNet: MAE 13.53 yrs, Pearson r 0.36 (p ≈ 0.38).
-  - Both compress predictions into ~50–68 yrs. n = 8 is too small to be conclusive.
-  - SFCN is kept because its failure was largely caused by fixable mismatches (the 42–82 bin range, which fine-tuning replaces with 20–90, and preprocessing). It is also 3D, so Grad-CAM needs no per-slice aggregation.
-- **Phase 4 (fine-tuning): in progress; two runs failed, cause of the second now fixed.** `scripts/04_finetune_sfcn.py`.
-  - **Run 1 (v1 data):** val MAE 14.73 yrs (95% CI 12.87–16.54), r 0.29. Predictions spread only 2.7 yrs (sd) against a real-age sd of 17.4, so in effect the model guessed the mean (guessing the train mean gives MAE 15.3). Causes: v1 misalignment, plus too-cautious stage-2 settings, which were then raised.
-  - **Overfit check (v2 data, 16 train subjects):** MAE fell from 19.4 to 4.4 yrs, r 0.95. The pipeline can learn.
-  - **Run 2 (v2 data, 347 train / 75 val, results in `BrainAge_Project/checkpoints/sfcn_finetune/`):** val MAE 13.37 yrs (95% CI 11.30–15.53), r 0.33, prediction sd 7.7. Train MAE fell to 5.7: memorised, did not generalise. In stage 1 (frozen backbone), validation predictions varied by only 0.6 yrs.
-  - **Cause of run 2's failure: input scaling.** SFCN's own example divides each scan by its mean over the full 182×218×182 box *before* cropping. We divided by the mean of the cropped volume, so inputs were ~1.47× too small. On 30 validation scans (2026-10-09), the original, un-fine-tuned SFCN gives:
-    - our old scaling: r 0.01, prediction spread 0.6 yrs (near-constant output);
-    - SFCN's scaling (×1.47): r 0.39, spread 6.6 yrs;
-    - ×0.5 or ×3: constant again;
-    - mirroring left-right (TemplateFlow stores the template RAS, FSL LAS): no effect.
-
-    The training script now divides by the sum over the full-box voxel count (`SFCN_NORMALISATION_VOXELS`). The volumes themselves are unchanged.
-  - Next: on Colab, re-run `--overfit` (sanity), then the full run.
+- **Phase 3 (zero-shot validation): decision SFCN stands; the original numbers are invalid** (old labels, v1 data). On v2 data with SFCN's input scaling and the official labels, the original un-fine-tuned SFCN on 30 validation subjects gives **r 0.93** (r 0.82 and MAE 4.6 yrs within its 45–80 training range). SFCN is also 3D, so Grad-CAM needs no per-slice aggregation.
+- **Phase 4 (fine-tuning): ready to re-run with correct labels.** `scripts/04_finetune_sfcn.py`.
+  - Runs 1–3 (2026-10-08/09) all trained on the wrong labels and are discarded. They "memorised but did not generalise" (e.g. run 3: train MAE 6.6, val MAE 13.3 in eval mode), which is what mislabelled data produces.
+  - Two genuine fixes found along the way are kept:
+    - v2 preprocessing (above);
+    - input scaling: SFCN's own example divides each scan by its mean over the full 182×218×182 box *before* cropping. We divided by the cropped volume's mean, so inputs were ~1.47× too small and the pretrained SFCN gave near-constant output (prediction spread 0.6 yrs vs 6.6 yrs with SFCN's scaling). The script now divides by the sum over the full-box voxel count (`SFCN_NORMALISATION_VOXELS`). Left-right mirroring (TemplateFlow stores the template RAS, FSL LAS) made no difference.
+  - Next: on Colab, the full run with the corrected metadata and split files.
 - **Phases 5–8 (evaluation, fairness audit, XAI, report): not started.**
 
 ## Data location
@@ -61,9 +52,10 @@ Key contents:
 - `IXI_preprocessed/IXI###.npy`: v1 volumes, failed alignment QC; kept only for comparison
 - `phase2_v2_qc.csv`, `phase2_v2_qc_worst.png`: v2 QC table and the lowest-Dice scans
 - `checkpoints/sfcn_finetune[_smoke|_overfit]/`: `best.pt`, `history.csv`, `val_predictions.csv`, `summary.json`
-- `ixi_final_metadata.csv`: matched subjects
-- `ixi_train.csv`, `ixi_val.csv`, `ixi_test.csv`: the splits
-- `IXI_demographics.xls`
+- `ixi_final_metadata.csv`: subjects with official `IXI.xls` labels (built by `scripts/01b_official_labels.py`)
+- `ixi_train.csv`, `ixi_val.csv`, `ixi_test.csv`: the splits (339 / 73 / 73)
+- `IXI.xls`: official IXI demographics, the source of truth for age and sex
+- `*_OLD_wrong_labels.csv`, `IXI_demographics.xls`: the mislabelled Phase 1 files; do not use
 - `phase*_*.png` and `phase3_*_results.csv`: saved outputs
 
 The `file_path` and `preprocessed_path` columns in the split CSVs hold Windows `G:\` paths. In Colab, rebuild paths from `IXI_ID` instead.
@@ -76,7 +68,7 @@ The `file_path` and `preprocessed_path` columns in the split CSVs hold Windows `
 3. **Wording for attribution differences.** Never say "the model thinks differently" (or reasons, sees, or attends differently). Say that attribution patterns *differ between* groups or are *associated with* group membership.
 4. **No clinical claims.** No diagnostic, prognostic, or patient-care conclusions. This is a methods and fairness audit on healthy volunteers.
 5. **Control for age.** Any group comparison of BAG, error, or attribution must control for chronological age, for example by including age as a covariate or applying age-bias correction. Groups differ in age distribution, and BAG is age-dependent.
-6. **Report confidence intervals.** Every reported metric and group difference needs a CI; bootstrap if needed. Subgroups are small (IOP test n = 10), so avoid overclaiming.
-7. **Never tune on the test set.** All model selection, hyperparameters, early stopping, and bias-correction fitting use train/val only. The 75-subject test split is touched once, for final evaluation.
-   - The Phase 3 zero-shot check drew 8 subjects from the test split. Don't use test data for any further tuning or preprocessing decisions.
+6. **Report confidence intervals.** Every reported metric and group difference needs a CI; bootstrap if needed. Subgroups are small (IOP test n = 9), so avoid overclaiming.
+7. **Never tune on the test set.** All model selection, hyperparameters, early stopping, and bias-correction fitting use train/val only. The 73-subject test split is touched once, for final evaluation.
+   - Ask the teammate who built this split whether its test subjects have been used for anything beyond zero-shot checks, and record the answer here.
    - Excluding scans for poor preprocessing quality is allowed in any split, but only on image-quality grounds (the QC metrics or a visual check). Decide without looking at age, sex, site or model predictions, and record every exclusion.

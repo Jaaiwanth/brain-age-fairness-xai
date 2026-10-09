@@ -38,7 +38,7 @@ This repo is a small personal GitHub account and can look unpolished, but it is 
 - Multiple architecture variants provided as ready-to-use `.h5` weight files: **InceptionResNetV2, DenseNet169, ResNet50, VGG16** — all hosted directly in the repo via Git LFS.
 - Explicitly validated for **multi-site, multi-scanner generalization** — directly relevant to our site-effect analysis, since the authors specifically designed it to generalize across different scanners.
 - Independently cited and reused across many follow-up studies (e.g., pain/function studies, Alzheimer's studies), showing real-world community trust beyond the original authors.
-- The original paper itself shows the pretrained age-prediction weights work better as a transfer-learning starting point than ImageNet weights, particularly when the target dataset is small — directly supporting our use case with IXI's 499 subjects.
+- The original paper itself shows the pretrained age-prediction weights work better as a transfer-learning starting point than ImageNet weights, particularly when the target dataset is small — directly supporting our use case with IXI's 488 labelled subjects.
 
 ### Trade-off to be aware of
 - DeepBrainNet is a **2D CNN**, not 3D — it processes each scan as a stack of 80 axial slices and takes the median prediction across slices, rather than operating on the full 3D volume at once like SFCN does.
@@ -71,15 +71,15 @@ Before fine-tuning or building the rest of the pipeline, we run a **zero-shot sa
 
 ## 4. Dataset — IXI (confirmed appropriate, already in use)
 
-**Source:** https://brain-development.org/ixi-dataset/ (official site blocks Colab downloads; using Kaggle mirror `kbacon/ixi-t1` for scans + a Google Drive–hosted demographics file for real age/sex data)
+**Source:** https://brain-development.org/ixi-dataset/ (scans from the Kaggle mirror `kbacon/ixi-t1`; age and sex from the official `IXI.xls`. An earlier third-party demographics file paired scans with the wrong people and must not be used.)
 
 | Property | Value |
 |---|---|
-| Subjects (scans + real demographics merged) | 499 (581 T1 scans; 499 matched to demographics) |
+| Subjects with clean official labels | 488 (581 T1 scans; 502 indexed; 14 without a usable `IXI.xls` row) |
 | Modalities | T1-weighted structural MRI |
-| Sites | Guy's Hospital (282), Hammersmith (150), Institute of Psychiatry (67) |
+| Sites | Guy's Hospital (276), Hammersmith (151), Institute of Psychiatry (61) |
 | Age range | 20.0 – 86.3 years |
-| Sex | 278 Female, 221 Male |
+| Sex | 289 Female, 199 Male |
 | License | CC BY-SA 3.0 — must cite source |
 | Registry status | RRID: SCR_005839 — actively cited in 2024–2026 literature, no alerts |
 
@@ -91,12 +91,11 @@ Hospital/site information is embedded directly in each scan's filename (e.g., `I
 
 ```
 PHASE 1 — Setup & Data                         [complete]
-  → 581 IXI T1 scans; 502 have a demographics row, 3 of them with no age
-    (IXI302, IXI386, IXI550) → 499 usable
-  → An older metadata file lists 525 rows: the same 502 subjects plus 23
-    duplicate rows from the IXI demographics sheet (not corrupted files)
-  → IXI192 and IXI290 have contradictory duplicate rows (age; sex) and are
-    excluded from training and evaluation
+  → 581 IXI T1 scans; 502 indexed subjects
+  → Labels corrected 2026-10-09: the original demographics file paired every
+    scan with another person's age/sex. Now taken from the official IXI.xls
+    (scripts/01b_official_labels.py) → 488 subjects with clean labels
+  → IXI219 and IXI328 have contradictory rows in IXI.xls and are excluded
 
 PHASE 2 — Preprocessing (pretrained-model-compatible)  [complete: v2]
   → v1 (whole-head registration to nilearn's skull-stripped MNI template)
@@ -105,7 +104,7 @@ PHASE 2 — Preprocessing (pretrained-model-compatible)  [complete: v2]
     FSL MNI152 1mm (SFCN's template), crop, per-scan QC
     (scripts/02b_preprocess_v2.py). All 502 scans, 0 failures:
     Dice median 0.958 (min 0.941), centre offset median 0.7 mm (max 1.9)
-  → Train/Val/Test split, stratified by sex + site: 349 / 75 / 75
+  → Train/Val/Test split: 339 / 73 / 73 (team split, official labels)
 
 PHASE 3 — Pretrained Model Validation                  [complete: SFCN kept]
   → Zero-shot test of SFCN on a handful of real IXI scans

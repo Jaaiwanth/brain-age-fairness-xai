@@ -109,11 +109,12 @@ OVERFIT_OVERRIDES = {
 }
 OVERFIT_N_SUBJECTS = 16
 
-# Subjects left out of training and evaluation. The IXI demographics sheet has two
-# contradictory rows for each, so their true age/sex is unknown.
+# Subjects left out of training and evaluation. The official IXI.xls has two
+# contradictory rows for each, so their true age/sex is unknown. (The current split
+# files already omit them; this is a safety net.)
 EXCLUDED_SUBJECTS = {
-    192: "two different ages in the IXI demographics (53.1 and 58.1)",
-    290: "listed as both female and male in the IXI demographics",
+    219: "two different ages in the official IXI.xls (53.1 and 58.1)",
+    328: "listed as both female and male in the official IXI.xls",
 }
 
 
