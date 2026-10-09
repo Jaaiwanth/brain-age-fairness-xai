@@ -270,6 +270,12 @@ def main():
     if not metadata_path.exists():
         raise FileNotFoundError(f"Metadata not found: {metadata_path}")
     meta = pd.read_csv(metadata_path)
+    # Some metadata files repeat an IXI ID (the IXI demographics sheet has duplicate
+    # rows). One scan per ID: keep the first row, as Phase 1 did.
+    n_rows = len(meta)
+    meta = meta.drop_duplicates("IXI_ID").reset_index(drop=True)
+    if len(meta) < n_rows:
+        print(f"Note: {n_rows - len(meta)} duplicate IXI_ID rows in the metadata were ignored.")
     if args.smoke:
         meta = meta.groupby("site").sample(1, random_state=42)
 
