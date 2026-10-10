@@ -48,7 +48,12 @@ Audit whether a brain-age model is fair beyond accuracy (working title: *"Right 
   - **Acquisition-site effect at IOP.** Corrected BAG, IOP vs Guys: **−5.06 yrs [−8.66, −1.34]**, HC3 p = 0.012 (still below 0.05 after a Bonferroni correction for the three group terms). 8 of 9 IOP subjects have a negative BAG. Leaving out each IOP subject in turn gives −4.18 to −5.93, so no single subject drives it. HH vs Guys: +1.06 [−1.44, +3.53].
   - **Accuracy by group: no CI excludes 0.** Absolute error, IOP vs Guys: +1.92 yrs [−1.36, +5.14]. The model is not detectably less accurate for any group; IOP brains are predicted systematically younger.
   - Caveats: IOP n = 9, so the interval is wide. In IXI, site is confounded with the population each site recruited, so this design cannot separate scanner effects from cohort differences. It is an acquisition-site effect in the descriptive sense (Rule 2), not evidence about the people scanned (Rule 4).
-  - Next: leave-one-site-out training (3 Colab runs) to test whether the IOP offset persists when IOP is unseen; then Phase 7 (Grad-CAM attribution by site and sex).
+  - **Leave-one-site-out (2026-10-10), `scripts/06b_loso_analysis.py`, results in `results/phase6b/`.** Three models (`--exclude-site`), each trained and early-stopped without one site. Each predicts that site's train+val subjects (IOP 52, HH 127, Guys 233; the test split is not used) and is compared with its own validation subjects from the seen sites. Bias correction is fitted on those seen-site validation subjects. Age-adjusted, 95% bootstrap CIs:
+    - **IOP unseen: accuracy drops.** Absolute error +3.30 yrs [+1.62, +4.93] (MAE 6.80 vs 3.59). BAG −2.14 [−4.42, +0.20]: same direction as the main model, CI just includes 0.
+    - **HH unseen: generalises.** Absolute error +0.25 [−0.88, +1.36]; BAG +0.51 [−1.34, +2.30].
+    - **Guys unseen:** absolute error −0.71 [−1.86, +0.37]; BAG +3.08 [+0.95, +5.08] relative to an HH+IOP reference (n = 32, 9 of them IOP).
+  - Reading across analyses: IOP is the one site a model cannot generalise to without seeing it. Its scans differ enough that accuracy falls by about 3 yrs when unseen. Including IOP in training restores accuracy (test MAE for IOP 5.19, CI overlapping the other sites) but not the offset. The IOP–Guys BAG difference has the same sign in every analysis (main model −5.06; IOP unseen −2.14; Guys unseen +3.08 against a partly-IOP reference). Consistent with an acquisition-site effect at IOP; sizes are uncertain (small reference sets) and site remains confounded with cohort.
+  - Next: Phase 7 (Grad-CAM attribution by site and sex).
 - **Phases 7–8 (XAI, report): not started.**
 
 ## Data location
