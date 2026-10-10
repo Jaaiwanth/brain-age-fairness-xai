@@ -1,0 +1,97 @@
+[
+ {
+  "check": "1. extended head starts ~ pretrained model",
+  "passed": true,
+  "detail": "max |expected-age change| 0.009 y, mean 0.004; probability mass on new bins 0.0002"
+ },
+ {
+  "check": "1b. pretrained 40-bin weights copied exactly into the 70-bin head",
+  "passed": true,
+  "detail": "bins 42-82 identical"
+ },
+ {
+  "check": "1c. extension is needed",
+  "passed": true,
+  "detail": "199/485 subjects are below the original floor of 42.5 y; best-case error for them would still be 11.2 y"
+ },
+ {
+  "check": "2. stage 'head': freezing / gradients / BN stats",
+  "passed": true,
+  "detail": "trainable 4,550/2,954,886; frozen params have no grad: True; trainable grads finite & nonzero: True; BN running stats unchanged: True; loss 46.79"
+ },
+ {
+  "check": "2. stage 'partial': freezing / gradients / BN stats",
+  "passed": true,
+  "detail": "trainable 1,791,366/2,954,886; frozen params have no grad: True; trainable grads finite & nonzero: True; BN running stats unchanged: True; loss 52.99"
+ },
+ {
+  "check": "2. stage 'full': freezing / gradients / BN stats",
+  "passed": true,
+  "detail": "trainable 2,954,886/2,954,886; frozen params have no grad: True; trainable grads finite & nonzero: True; BN running stats unchanged: True; loss 51.90"
+ },
+ {
+  "check": "3. stage 'head' fits in GPU memory at batch 2",
+  "passed": true,
+  "detail": "peak 1.35 GB, 0.03 s/sample fwd+bwd"
+ },
+ {
+  "check": "3. stage 'partial' fits in GPU memory at batch 2",
+  "passed": true,
+  "detail": "peak 1.36 GB, 0.03 s/sample fwd+bwd"
+ },
+ {
+  "check": "3. stage 'full' fits in GPU memory at batch 2",
+  "passed": true,
+  "detail": "peak 2.33 GB, 0.07 s/sample fwd+bwd"
+ },
+ {
+  "check": "4. head-only run on 8 subjects: loss and validation error improve",
+  "passed": true,
+  "detail": "train loss x1.16 lower; val MAE 13.21 -> 12.36; |bias| 8.42 -> 5.91"
+ },
+ {
+  "check": "4b. validation loop + checkpoint round trip",
+  "passed": true,
+  "detail": "reloaded best.pt gives val MAE 12.36 vs recorded 12.36"
+ },
+ {
+  "check": "4c. original pretrained checkpoint untouched",
+  "passed": true,
+  "detail": "sha256 identical before/after"
+ },
+ {
+  "check": "4d. stage 'head' updates exactly the intended layers",
+  "passed": true,
+  "detail": "changed: classifier.conv_6 (max |dw| 3.0e-03); unchanged: feature_extractor.conv_0, feature_extractor.conv_4, feature_extractor.conv_5"
+ },
+ {
+  "check": "4d. stage 'partial' updates exactly the intended layers",
+  "passed": true,
+  "detail": "changed: classifier.conv_6 (max |dw| 2.9e-03), feature_extractor.conv_4 (max |dw| 3.0e-03), feature_extractor.conv_5 (max |dw| 3.0e-03); unchanged: feature_extractor.conv_0, feature_extractor.conv_3"
+ },
+ {
+  "check": "4d. stage 'full' updates exactly the intended layers",
+  "passed": true,
+  "detail": "changed: classifier.conv_6 (max |dw| 2.8e-03), feature_extractor.conv_5 (max |dw| 3.0e-03), feature_extractor.conv_0 (max |dw| 3.0e-03)"
+ },
+ {
+  "check": "4e. full network (default conservative LRs) learns on 4 subjects",
+  "passed": true,
+  "detail": "train MAE 14.84 -> 8.69"
+ },
+ {
+  "check": "5. early stopping",
+  "passed": true,
+  "detail": "stopped after 2 epochs (patience 2); best checkpoint = epoch 0 (the starting point)"
+ },
+ {
+  "check": "6. stage 'partial' runs and updates",
+  "passed": true,
+  "detail": "2 epochs, losses [31.16, 30.4], val MAE [12.36, 12.36]"
+ },
+ {
+  "check": "6. stage 'full' runs and updates",
+  "passed": true,
+  "detail": "2 epochs, losses [31.16, 30.4], val MAE [12.36, 12.36]"
+ }
+]

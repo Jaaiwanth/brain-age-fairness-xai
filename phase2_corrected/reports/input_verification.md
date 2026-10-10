@@ -1,0 +1,94 @@
+# Input verification: what SFCN and DeepBrainNet actually receive
+
+## 1. Front-back flip in `deepbrainnet/` vs the original DeepBrainNet data convention
+
+The original `Slicer.py` does no re-orienting: it takes `data[:, :, z]` of the NIfTI exactly as stored, so the convention is whatever the shipped reference volumes use. Comparison with those four reference volumes:
+
+| | reference sample (`Subject1`) | our `deepbrainnet/IXI###.nii.gz` | match |
+|---|---|---|---|
+| shape | (182, 218, 182) | (182, 218, 182) | True |
+| axis codes | LPS | LPS | True |
+| affine (voxel size, origin) | diag [-1.0, -1.0, 1.0] origin [90.0, 91.0, -72.0] | diag [-1.0, -1.0, 1.0] origin [90.0, 91.0, -72.0] | True |
+
+- `deepbrainnet/` array == `sfcn/` array with y flipped, exactly, for 40 random subjects: **True**
+- Label-free anatomical check: the front-back profile of brain tissue is asymmetric (frontal pole vs occipital pole/cerebellum), so it identifies the direction. Correlation of our mean profile with the reference samples' profile (axis 1), as stored vs reversed:
+
+| axis | as stored | reversed |
+|---|---|---|
+| x (left-right) | **1.000** | 0.996 |
+| y (front-back) | **1.000** | 0.906 |
+| z (up-down) | **0.999** | 0.804 |
+
+**Result:** orientation, shape and affine identical to the reference data; y and z profiles match only in the stored direction -> flip is correct: **True**.
+(Left-right is nearly symmetric, so it cannot be tested this way; it matters little: flipping it changed SFCN's MAE by 0.2 y.)
+
+## 2. Slices 45-124 (80 axial slices)
+
+- Slice axis is axis 2, code `S` (index increases toward Superior), 1 mm voxels, so slice k is at z = -72 + k mm (MNI): slice 45 -> z = -27 mm, slice 124 -> z = 52 mm.
+- Original `Slicer.py` uses `range(0, 80)` offset by 45 (i.e. 45..124). antspynet's `brain_age()` uses `range(45, 125)` as well, noting that the paper only specifies 80 slices and this range spans the centre of the brain.
+- Brain extent along z (slice index): ours 10-155, reference 0-156; the 80 slices contain **77%** of our brain voxels vs **76%** of the reference brains'.
+- Our brains span z = -62 to 83 mm, so the 80 slices (z = -27 to 52 mm) cover the middle of the brain: they skip the lowest 35 mm (brainstem/lower cerebellum/temporal base) and the top 31 mm (vertex). The reference brains are covered by the same range. See the figure.
+
+![orientation and slice range](input_verification.png)
+
+## 3. Tensor dimensions and intensity ranges seen by each model
+
+| | expected (reference code / reference data) | observed over all subjects |
+|---|---|---|
+| SFCN tensor | `(1,1,160,192,160)` float32 | {'1x1x160x192x160': 485} ['torch.float32'] |
+| SFCN values after `/mean` | reference brains: min 0, max 11.0, mean 1.47 | min 0.0, max 5.3-12.6, mean 1.47 (fixed by crop geometry: 182x218x182 / 160x192x160 = 1.469, so it only confirms the crop) |
+| SFCN probabilities | sum to 1 | sum in [1.0000, 1.0000] |
+| DeepBrainNet tensor | `(80,256,256,3)` float32 (80 slices, 256x256, RGB) | {'80x256x256x3': 485} ['float32'] |
+| DeepBrainNet values | [0,1] (uint8/255; p97 -> 185/255 = 0.725); reference brains: max 1.00, mean 0.252 | min 0.0, max 1.00 (0 subjects with max below 0.7), mean 0.264 (sd 0.012) |
+| DeepBrainNet p97 (raw) | positive, finite | min 40, max 3351 (scanner scales differ; removed by the x185/p97 rescale), all finite True |
+| per-slice predictions | 80 finite values | slice-range min 13.4, max 80.0 |
+
+The SFCN checkpoint was loaded with `strict=True` (all keys matched) and the DeepBrainNet file by SHA256 against the repo's LFS pointer, so the networks themselves are the released ones.
+
+## 4. Same subjects and same splits for both models
+
+- Split files: train 339, val 73, test 73; disjoint **True**; union equals the 485 corrected-label subjects **True**.
+- SFCN predicted 485 subjects, DeepBrainNet 485; identical subject sets **True**; no duplicates **True**.
+- Same labels in both prediction files: ages identical **True**, matching the corrected metadata **True**.
+- `split` column in both files equals the split files: SFCN **True**, DeepBrainNet **True**; counts {'train': 339, 'val': 73, 'test': 73} / {'train': 339, 'val': 73, 'test': 73}.
+- Same QC status for both: **True**.
+- Both models are zero-shot (no training), so the splits are used only to report accuracy per split; no model has seen any split.
+
+## 5. DeepBrainNet orientation sweep with the CORRECT labels (25 age-spread subjects)
+
+The earlier sweep was scored against the wrong labels and proved nothing. Here the same 8 flip/transpose combinations are applied to the volume before the full reference chain (JPEG, 256 resize, ...). The row marked as pipeline is what the pipeline uses.
+
+| flip rows (x) | flip cols (y) | transpose | MAE (y) | Pearson r | slope | |
+|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 6.87 | 0.821 | 0.53 | <-- pipeline |
+| 0 | 0 | 1 | 8.00 | 0.940 | 0.52 |  |
+| 0 | 1 | 0 | 6.75 | 0.829 | 0.55 |  |
+| 0 | 1 | 1 | 8.04 | 0.943 | 0.52 |  |
+| 1 | 0 | 0 | 6.77 | 0.829 | 0.54 |  |
+| 1 | 0 | 1 | 7.90 | 0.944 | 0.52 |  |
+| 1 | 1 | 0 | 6.68 | 0.820 | 0.55 |  |
+| 1 | 1 | 1 | 8.32 | 0.932 | 0.51 |  |
+
+### 5a. DeepBrainNet's own reference brains (known ages 45-58), all 8 orientations
+
+These are the authors' data in their convention, so the orientation in which the model reproduces their ages is the one it expects.
+
+| flip rows (x) | flip cols (y) | transpose | MAE (y) | bias (y) | |
+|---|---|---|---|---|---|
+| 0 | 0 | 0 | 2.34 | +2.34 | <-- pipeline |
+| 0 | 0 | 1 | 7.38 | +7.38 |  |
+| 0 | 1 | 0 | 3.03 | +3.03 |  |
+| 0 | 1 | 1 | 9.36 | +9.36 |  |
+| 1 | 0 | 0 | 2.43 | +2.43 |  |
+| 1 | 0 | 1 | 8.30 | +8.30 |  |
+| 1 | 1 | 0 | 2.32 | +2.32 |  |
+| 1 | 1 | 1 | 9.83 | +9.83 |  |
+
+### 5b. Paired comparison on 100 random subjects: as stored vs transposed
+
+| orientation | MAE (y) | bias (y) | Pearson r | slope |
+|---|---|---|---|---|
+| as stored (pipeline) | 5.38 | +2.62 | 0.902 | 0.68 |
+| transposed (rows/cols swapped) | 7.61 | +2.68 | 0.880 | 0.47 |
+
+Paired bootstrap, as stored minus transposed: MAE difference -2.25 y (95% CI -3.09 to -1.38), r difference +0.024 (95% CI -0.024 to +0.073).

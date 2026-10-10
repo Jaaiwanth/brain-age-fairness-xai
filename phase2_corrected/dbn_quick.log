@@ -1,0 +1,85 @@
+2026-10-09 01:07:15.623385: I tensorflow/core/util/port.cc:153] oneDNN custom operations are on. You may see slightly different numerical results due to floating-point round-off errors from different computation orders. To turn them off, set the environment variable `TF_ENABLE_ONEDNN_OPTS=0`.
+2026-10-09 01:07:20.311301: I tensorflow/core/util/port.cc:153] oneDNN custom operations are on. You may see slightly different numerical results due to floating-point round-off errors from different computation orders. To turn them off, set the environment variable `TF_ENABLE_ONEDNN_OPTS=0`.
+WARNING:tensorflow:From C:\Users\jaaiw\Desktop\3rd_year_projects\ml_brain\brainage-env\Lib\site-packages\tf_keras\src\losses.py:2976: The name tf.losses.sparse_softmax_cross_entropy is deprecated. Please use tf.compat.v1.losses.sparse_softmax_cross_entropy instead.
+
+2026-10-09 01:07:27.322979: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: SSE3 SSE4.1 SSE4.2 AVX AVX2 AVX_VNNI FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+WARNING:tensorflow:From C:\Users\jaaiw\Desktop\3rd_year_projects\ml_brain\brainage-env\Lib\site-packages\tf_keras\src\backend.py:1400: The name tf.executing_eagerly_outside_functions is deprecated. Please use tf.compat.v1.executing_eagerly_outside_functions instead.
+
+WARNING:tensorflow:From C:\Users\jaaiw\Desktop\3rd_year_projects\ml_brain\brainage-env\Lib\site-packages\tf_keras\src\layers\pooling\max_pooling2d.py:161: The name tf.nn.max_pool is deprecated. Please use tf.nn.max_pool2d instead.
+
+Checkpoint: {'sha256_ok': True, 'input_shape': '(None, None, None, 3)', 'output_shape': '(None, 1)', 'n_params': 15241025, 'n_layers': 5, 'last_layer': 'dense_4'}
+[1/71] 2: actual=35.8 pred=39.0  input 80x256x256x3 [0, 0.925] mean=0.267
+[2/71] 12: actual=38.8 pred=47.5  input 80x256x256x3 [0, 0.984] mean=0.276
+[3/71] 13: actual=46.7 pred=51.3  input 80x256x256x3 [0, 1] mean=0.267
+[4/71] 14: actual=34.2 pred=41.5  input 80x256x256x3 [0, 1] mean=0.269
+[5/71] 15: actual=24.3 pred=48.2  input 80x256x256x3 [0, 1] mean=0.273
+[6/71] 16: actual=55.2 pred=61.4  input 80x256x256x3 [0, 1] mean=0.26
+[7/71] 17: actual=29.1 pred=46.1  input 80x256x256x3 [0, 0.882] mean=0.267
+[8/71] 19: actual=58.7 pred=58.2  input 80x256x256x3 [0, 1] mean=0.243
+[9/71] 20: actual=39.5 pred=44.2  input 80x256x256x3 [0, 0.98] mean=0.265
+[10/71] 21: actual=21.6 pred=31.9  input 80x256x256x3 [0, 0.859] mean=0.268
+[11/71] 22: actual=30.7 pred=39.5  input 80x256x256x3 [0, 0.949] mean=0.257
+[12/71] 23: actual=33.1 pred=29.3  input 80x256x256x3 [0, 0.929] mean=0.27
+[13/71] 24: actual=37.7 pred=40.4  input 80x256x256x3 [0, 0.863] mean=0.267
+[14/71] 25: actual=29.8 pred=40.4  input 80x256x256x3 [0, 0.957] mean=0.257
+[15/71] 26: actual=34.5 pred=39.3  input 80x256x256x3 [0, 1] mean=0.267
+[16/71] 27: actual=30.4 pred=43.3  input 80x256x256x3 [0, 1] mean=0.274
+[17/71] 28: actual=74.0 pred=69.6  input 80x256x256x3 [0, 0.965] mean=0.24
+[18/71] 29: actual=59.2 pred=61.9  input 80x256x256x3 [0, 1] mean=0.255
+[19/71] 30: actual=31.5 pred=30.8  input 80x256x256x3 [0, 0.863] mean=0.275
+[20/71] 31: actual=31.1 pred=43.8  input 80x256x256x3 [0, 1] mean=0.283
+[21/71] 33: actual=24.8 pred=32.8  input 80x256x256x3 [0, 1] mean=0.267
+[22/71] 34: actual=24.3 pred=31.2  input 80x256x256x3 [0, 1] mean=0.293
+[23/71] 35: actual=37.1 pred=58.3  input 80x256x256x3 [0, 1] mean=0.272
+[24/71] 36: actual=23.5 pred=23.0  input 80x256x256x3 [0, 0.953] mean=0.269
+[25/71] 37: actual=37.2 pred=48.2  input 80x256x256x3 [0, 0.898] mean=0.249
+[26/71] 38: actual=21.4 pred=28.1  input 80x256x256x3 [0, 0.945] mean=0.269
+[27/71] 39: actual=23.3 pred=28.9  input 80x256x256x3 [0, 1] mean=0.271
+[28/71] 40: actual=44.1 pred=46.5  input 80x256x256x3 [0, 0.894] mean=0.256
+[29/71] 41: actual=27.4 pred=42.5  input 80x256x256x3 [0, 0.969] mean=0.261
+[30/71] 42: actual=27.8 pred=30.0  input 80x256x256x3 [0, 0.89] mean=0.26
+[31/71] 43: actual=22.6 pred=20.5  input 80x256x256x3 [0, 0.918] mean=0.266
+[32/71] 44: actual=44.9 pred=52.9  input 80x256x256x3 [0, 0.894] mean=0.252
+[33/71] 45: actual=40.0 pred=42.8  input 80x256x256x3 [0, 0.937] mean=0.285
+[34/71] 46: actual=37.7 pred=45.1  input 80x256x256x3 [0, 0.933] mean=0.272
+[35/71] 48: actual=50.7 pred=54.2  input 80x256x256x3 [0, 1] mean=0.264
+[36/71] 49: actual=31.9 pred=47.4  input 80x256x256x3 [0, 1] mean=0.278
+[37/71] 50: actual=63.2 pred=61.9  input 80x256x256x3 [0, 0.949] mean=0.254
+[38/71] 51: actual=25.7 pred=29.9  input 80x256x256x3 [0, 1] mean=0.279
+[39/71] 52: actual=33.8 pred=41.6  input 80x256x256x3 [0, 1] mean=0.29
+[40/71] 53: actual=53.3 pred=52.8  input 80x256x256x3 [0, 0.945] mean=0.245
+[41/71] 54: actual=41.8 pred=38.5  input 80x256x256x3 [0, 0.89] mean=0.26
+[42/71] 55: actual=49.4 pred=52.3  input 80x256x256x3 [0, 0.886] mean=0.26
+[43/71] 56: actual=25.9 pred=29.7  input 80x256x256x3 [0, 1] mean=0.269
+[44/71] 57: actual=28.2 pred=33.6  input 80x256x256x3 [0, 1] mean=0.273
+[45/71] 58: actual=29.3 pred=43.9  input 80x256x256x3 [0, 0.933] mean=0.267
+[46/71] 59: actual=34.1 pred=32.6  input 80x256x256x3 [0, 1] mean=0.274
+[47/71] 60: actual=30.7 pred=24.8  input 80x256x256x3 [0, 0.973] mean=0.26
+[48/71] 61: actual=59.0 pred=53.0  input 80x256x256x3 [0, 0.875] mean=0.256
+[49/71] 62: actual=36.2 pred=45.9  input 80x256x256x3 [0, 0.906] mean=0.262
+[50/71] 63: actual=41.1 pred=44.3  input 80x256x256x3 [0, 1] mean=0.266
+[51/71] 64: actual=20.1 pred=32.6  input 80x256x256x3 [0, 0.988] mean=0.264
+[52/71] 65: actual=23.7 pred=27.8  input 80x256x256x3 [0, 0.922] mean=0.262
+[53/71] 94: actual=24.9 pred=47.6  input 80x256x256x3 [0, 1] mean=0.266
+[54/71] 109: actual=36.5 pred=42.0  input 80x256x256x3 [0, 0.925] mean=0.267
+[55/71] 130: actual=38.8 pred=45.6  input 80x256x256x3 [0, 1] mean=0.281
+[56/71] 156: actual=59.4 pred=57.7  input 80x256x256x3 [0, 0.898] mean=0.272
+[57/71] 194: actual=48.3 pred=51.4  input 80x256x256x3 [0, 0.961] mean=0.262
+[58/71] 212: actual=59.1 pred=58.4  input 80x256x256x3 [0, 1] mean=0.271
+[59/71] 259: actual=59.8 pred=59.8  input 80x256x256x3 [0, 1] mean=0.26
+[60/71] 275: actual=24.2 pred=30.8  input 80x256x256x3 [0, 1] mean=0.272
+[61/71] 310: actual=62.0 pred=67.1  input 80x256x256x3 [0, 1] mean=0.27
+[62/71] 317: actual=67.8 pred=68.2  input 80x256x256x3 [0, 0.922] mean=0.252
+[63/71] 330: actual=44.5 pred=47.6  input 80x256x256x3 [0, 0.961] mean=0.253
+[64/71] 335: actual=69.3 pred=64.8  input 80x256x256x3 [0, 1] mean=0.254
+[65/71] 372: actual=29.3 pred=51.3  input 80x256x256x3 [0, 1] mean=0.295
+[66/71] 429: actual=55.5 pred=56.2  input 80x256x256x3 [0, 1] mean=0.257
+[67/71] 434: actual=67.2 pred=60.3  input 80x256x256x3 [0, 1] mean=0.299
+[68/71] 480: actual=60.0 pred=57.5  input 80x256x256x3 [0, 0.914] mean=0.262
+[69/71] 487: actual=66.3 pred=56.1  input 80x256x256x3 [0, 1] mean=0.254
+[70/71] 501: actual=67.1 pred=67.7  input 80x256x256x3 [0, 0.961] mean=0.268
+[71/71] 542: actual=44.4 pred=61.4  input 80x256x256x3 [0, 0.847] mean=0.27
+
+Predicted 71 | skipped by QC 0 | requested 71
+MAE=6.70  Pearson r=0.871  Spearman=0.851  slope=0.728

@@ -10,3 +10,7 @@ MNI152_T1_1mm.nii.gz
 
 # Python virtual environment.
 brainage-env/
+
+# Fine-tuning artefacts (large)
+phase4_finetune/cache/
+phase4_finetune/checkpoints/
