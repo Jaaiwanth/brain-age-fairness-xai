@@ -1,16 +1,96 @@
-# Kaggle API credentials — never commit secrets.
+# ----------------------------------------------------------------------------
+# Secrets and credentials -- never commit these.
+# ----------------------------------------------------------------------------
 kaggle.json
 .kaggle/
+.env
+.env.*
 
-# Downloaded medical-imaging data and derived local project artifacts.
+# ----------------------------------------------------------------------------
+# Raw / downloaded medical-imaging data and local project data folders
+# (IXI scans and derived volumes are not redistributed; see README.md for how to obtain them).
+# ----------------------------------------------------------------------------
 ML_Project/
 IXI_data/
 downloads/
 MNI152_T1_1mm.nii.gz
+*.nii
+*.nii.gz
 
-# Python virtual environment.
-brainage-env/
-
-# Fine-tuning artefacts (large)
+# ----------------------------------------------------------------------------
+# Cached MRI volumes and NumPy arrays
+# ----------------------------------------------------------------------------
+*.npy
+*.npz
 phase4_finetune/cache/
+
+# ----------------------------------------------------------------------------
+# Model checkpoints and weights (original pretrained weights are documented, not committed)
+# ----------------------------------------------------------------------------
+*.pt
+*.pth
+*.h5
+*.p
 phase4_finetune/checkpoints/
+
+# ----------------------------------------------------------------------------
+# Logs
+# ----------------------------------------------------------------------------
+*.log
+
+# ----------------------------------------------------------------------------
+# Local run state and scratch files (specific paths only)
+# ----------------------------------------------------------------------------
+phase2_corrected/chain_status.txt
+phase2_corrected/pilot20_extra_ids.txt
+phase2_corrected/quick_ids.txt
+phase2_corrected/final_npy_after_chain.sh
+phase4_finetune/smoke_results.json
+
+# ----------------------------------------------------------------------------
+# Third-party data and outputs: obtain from the original sources (see README.md)
+# ----------------------------------------------------------------------------
+phase2_corrected/label_fix/IXI.xls
+phase2_corrected/label_fix/reference/
+
+# ----------------------------------------------------------------------------
+# Generated per-subject prediction/label tables and run markers (kept local).
+# Aggregate tables (test_summary.csv, stage_summary_val.csv) stay tracked.
+# ----------------------------------------------------------------------------
+phase2_corrected/case_study/proposed_corrected_labels.csv
+phase2_corrected/case_study/pilot_with_correct_labels.csv
+phase2_corrected/reports/input_verification_paired100.csv
+phase2_corrected/reports/input_verification_reference_sweep.csv
+phase2_corrected/reports/input_verification_sweep.csv
+phase4_finetune/reports/fullC_val_predictions.csv
+phase4_finetune/reports/test_predictions_fullC.csv
+phase4_finetune/reports/test_evaluated.json
+
+# ----------------------------------------------------------------------------
+# Re-downloadable template assets (instructions in phase2_corrected/assets/README.md)
+# ----------------------------------------------------------------------------
+phase2_corrected/assets/*.nii.gz
+
+# ----------------------------------------------------------------------------
+# Invalid results: computed from the historical mis-aligned age/sex labels
+# (see CASE_STUDY_iAudit_vs_ml_brain.md and analysis/README.md)
+# ----------------------------------------------------------------------------
+analysis/output/sex_disparity_deepbrainnet.png
+analysis/output/sex_disparity_deepbrainnet.txt
+analysis/output/sex_disparity_sfcn.png
+analysis/output/sex_disparity_sfcn.txt
+
+# ----------------------------------------------------------------------------
+# Python caches, notebooks checkpoints and local environments
+# ----------------------------------------------------------------------------
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+brainage-env/
+venv/
+.venv/
+
+# ----------------------------------------------------------------------------
+# Local clones of third-party code (clone them as described in README.md)
+# ----------------------------------------------------------------------------
+external/
