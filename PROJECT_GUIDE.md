@@ -53,8 +53,16 @@ Audit whether a brain-age model is fair beyond accuracy (working title: *"Right 
     - **HH unseen: generalises.** Absolute error +0.25 [−0.88, +1.36]; BAG +0.51 [−1.34, +2.30].
     - **Guys unseen:** absolute error −0.71 [−1.86, +0.37]; BAG +3.08 [+0.95, +5.08] relative to an HH+IOP reference (n = 32, 9 of them IOP).
   - Reading across analyses: IOP is the one site a model cannot generalise to without seeing it. Its scans differ enough that accuracy falls by about 3 yrs when unseen. Including IOP in training restores accuracy (test MAE for IOP 5.19, CI overlapping the other sites) but not the offset. The IOP–Guys BAG difference has the same sign in every analysis (main model −5.06; IOP unseen −2.14; Guys unseen +3.08 against a partly-IOP reference). Consistent with an acquisition-site effect at IOP; sizes are uncertain (small reference sets) and site remains confounded with cohort.
-  - Next: Phase 7 (Grad-CAM attribution by site and sex).
-- **Phases 7–8 (XAI, report): not started.**
+- **Phase 7 (attribution): done (2026-10-10).** `scripts/07_gradcam.py` on the frozen Phase 4 checkpoint; results in `results/phase7/` (also on Drive). It took 15 min on a laptop CPU for all 485 subjects.
+  - Method: gradient × activation at `conv_2` (20×24×20), |Σ_c g·A| (HiResCAM-style), target = predicted age (expected value over bins). Maps are upsampled to 160×192×160, masked to the brain, and normalised to sum 1 so each map is a share of attribution. Standard Grad-CAM (channel-averaged gradients with ReLU) gave empty maps for 20–80% of subjects. The switch was made for that reason alone, before any group result was seen.
+  - Sanity check (Adebayo et al. 2018): re-initialising conv_3 to conv_6 changes the maps (median Spearman r 0.13 vs trained, n = 8). The maps therefore depend on the learned weights.
+  - Regions: Harvard-Oxford (TemplateFlow MNI152NLin6Asym, th25) on the same grid as the scans. 48 cortical regions plus subcortical structures (left/right merged) give 59 fine regions in 7 coarse groups. Brain voxels with no atlas label are counted as "Cerebellum and unlabelled".
+  - Group analysis: held-out subjects only (val + test, n = 146; Guys 83, HH 45, IOP 18; 87 F / 59 M). Model: share ~ sex + site + age, HC3, Benjamini-Hochberg FDR per term. Fine regions are tested only if their mean share is above 0.2%.
+  - Across all groups, the most attribution falls on deep grey matter around the lateral ventricles (thalamus, caudate, putamen), the periventricular white matter and the cerebellum.
+  - **Sex: no region differs** (coarse or fine, all FDR q > 0.05).
+  - **Site: attribution patterns differ between acquisition sites.** Compared with Guys, HH and IOP scans place less attribution on deep grey matter (HH −1.14, IOP −1.29 percentage points) and on the hippocampus/amygdala (−0.25, −0.28), and more on the cerebellum/unlabelled class (HH +2.66; IOP +1.98, q = 0.07). IOP also places less on the brainstem (−0.90). 43 fine region × site terms pass FDR; most are small (< 0.5 pp).
+  - Reading: attribution patterns are associated with acquisition site, not with sex. This matches Phase 6, where BAG and accuracy differed by site but not by sex. The design cannot say whether the differences come from scanner/protocol differences in the images or from the cohorts recruited at each site. The finding is not evidence about the people scanned (Rules 3 and 4).
+- **Phase 8 (report): not started.** Before writing, redo the Phase 3 zero-shot numbers on validation with the official labels; the old numbers used the wrong labels.
 
 ## Data location
 
