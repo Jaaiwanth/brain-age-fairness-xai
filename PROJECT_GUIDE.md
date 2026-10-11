@@ -62,7 +62,7 @@ Audit whether a brain-age model is fair beyond accuracy (working title: *"Right 
   - **Sex: no region differs** (coarse or fine, all FDR q > 0.05).
   - **Site: attribution patterns differ between acquisition sites.** Compared with Guys, HH and IOP scans place less attribution on deep grey matter (HH −1.14, IOP −1.29 percentage points) and on the hippocampus/amygdala (−0.25, −0.28), and more on the cerebellum/unlabelled class (HH +2.66; IOP +1.98, q = 0.07). IOP also places less on the brainstem (−0.90). 43 fine region × site terms pass FDR; most are small (< 0.5 pp).
   - Reading: attribution patterns are associated with acquisition site, not with sex. This matches Phase 6, where BAG and accuracy differed by site but not by sex. The design cannot say whether the differences come from scanner/protocol differences in the images or from the cohorts recruited at each site. The finding is not evidence about the people scanned (Rules 3 and 4).
-- **Phase 8 (report): not started.** Before writing, redo the Phase 3 zero-shot numbers on validation with the official labels; the old numbers used the wrong labels.
+- **Phase 8 (report): not started.**
 
 ## Data location
 
