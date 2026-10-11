@@ -94,3 +94,10 @@ venv/
 # Local clones of third-party code (clone them as described in README.md)
 # ----------------------------------------------------------------------------
 external/
+
+# DeepBrainNet fine-tuning artifacts
+phase5_dbn_finetune/cache/
+phase5_dbn_finetune/*.log
+
+# DeepBrainNet model checkpoints
+phase5_dbn_finetune/checkpoints/
