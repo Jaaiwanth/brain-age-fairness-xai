@@ -22,7 +22,7 @@ MNI152_T1_1mm.nii.gz
 # ----------------------------------------------------------------------------
 *.npy
 *.npz
-phase4_finetune/cache/
+experiments/sfcn/cache/
 
 # ----------------------------------------------------------------------------
 # Model checkpoints and weights (original pretrained weights are documented, not committed)
@@ -31,7 +31,7 @@ phase4_finetune/cache/
 *.pth
 *.h5
 *.p
-phase4_finetune/checkpoints/
+experiments/sfcn/checkpoints/
 
 # ----------------------------------------------------------------------------
 # Logs
@@ -41,44 +41,44 @@ phase4_finetune/checkpoints/
 # ----------------------------------------------------------------------------
 # Local run state and scratch files (specific paths only)
 # ----------------------------------------------------------------------------
-phase2_corrected/chain_status.txt
-phase2_corrected/pilot20_extra_ids.txt
-phase2_corrected/quick_ids.txt
-phase2_corrected/final_npy_after_chain.sh
-phase4_finetune/smoke_results.json
+experiments/preprocessing/chain_status.txt
+experiments/preprocessing/pilot20_extra_ids.txt
+experiments/preprocessing/quick_ids.txt
+experiments/preprocessing/final_npy_after_chain.sh
+experiments/sfcn/smoke_results.json
 
 # ----------------------------------------------------------------------------
 # Third-party data and outputs: obtain from the original sources (see README.md)
 # ----------------------------------------------------------------------------
-phase2_corrected/label_fix/IXI.xls
-phase2_corrected/label_fix/reference/
+experiments/preprocessing/label_fix/IXI.xls
+experiments/preprocessing/label_fix/reference/
 
 # ----------------------------------------------------------------------------
 # Generated per-subject prediction/label tables and run markers (kept local).
 # Aggregate tables (test_summary.csv, stage_summary_val.csv) stay tracked.
 # ----------------------------------------------------------------------------
-phase2_corrected/case_study/proposed_corrected_labels.csv
-phase2_corrected/case_study/pilot_with_correct_labels.csv
-phase2_corrected/reports/input_verification_paired100.csv
-phase2_corrected/reports/input_verification_reference_sweep.csv
-phase2_corrected/reports/input_verification_sweep.csv
-phase4_finetune/reports/fullC_val_predictions.csv
-phase4_finetune/reports/test_predictions_fullC.csv
-phase4_finetune/reports/test_evaluated.json
+experiments/preprocessing/case_study/proposed_corrected_labels.csv
+experiments/preprocessing/case_study/pilot_with_correct_labels.csv
+experiments/preprocessing/reports/input_verification_paired100.csv
+experiments/preprocessing/reports/input_verification_reference_sweep.csv
+experiments/preprocessing/reports/input_verification_sweep.csv
+experiments/sfcn/reports/fullC_val_predictions.csv
+experiments/sfcn/reports/test_predictions_fullC.csv
+experiments/sfcn/reports/test_evaluated.json
 
 # ----------------------------------------------------------------------------
-# Re-downloadable template assets (instructions in phase2_corrected/assets/README.md)
+# Re-downloadable template assets (instructions in experiments/preprocessing/assets/README.md)
 # ----------------------------------------------------------------------------
-phase2_corrected/assets/*.nii.gz
+experiments/preprocessing/assets/*.nii.gz
 
 # ----------------------------------------------------------------------------
 # Invalid results: computed from the historical mis-aligned age/sex labels
-# (see CASE_STUDY_iAudit_vs_ml_brain.md and analysis/README.md)
+# (see docs/case-studies/CASE_STUDY_iAudit_vs_ml_brain.md and experiments/analysis/README.md)
 # ----------------------------------------------------------------------------
-analysis/output/sex_disparity_deepbrainnet.png
-analysis/output/sex_disparity_deepbrainnet.txt
-analysis/output/sex_disparity_sfcn.png
-analysis/output/sex_disparity_sfcn.txt
+experiments/analysis/output/sex_disparity_deepbrainnet.png
+experiments/analysis/output/sex_disparity_deepbrainnet.txt
+experiments/analysis/output/sex_disparity_sfcn.png
+experiments/analysis/output/sex_disparity_sfcn.txt
 
 # ----------------------------------------------------------------------------
 # Python caches, notebooks checkpoints and local environments
@@ -96,14 +96,17 @@ venv/
 external/
 
 # DeepBrainNet fine-tuning artifacts
-phase5_dbn_finetune/cache/
-phase5_dbn_finetune/*.log
+experiments/deepbrainnet/cache/
+experiments/deepbrainnet/*.log
 
 # DeepBrainNet model checkpoints
-phase5_dbn_finetune/checkpoints/
+experiments/deepbrainnet/checkpoints/
 
 # DeepBrainNet per-subject predictions and test-run marker (aggregate tables and figures stay tracked)
-phase5_dbn_finetune/reports/test_predictions_last2C.csv
-phase5_dbn_finetune/reports/last2C_val_predictions.csv
-phase5_dbn_finetune/reports/test_evaluated.json
-phase5_dbn_finetune/smoke_results.json
+experiments/deepbrainnet/reports/test_predictions_last2C.csv
+experiments/deepbrainnet/reports/last2C_val_predictions.csv
+experiments/deepbrainnet/reports/test_evaluated.json
+experiments/deepbrainnet/smoke_results.json
+
+# Local-only case study (not published)
+docs/

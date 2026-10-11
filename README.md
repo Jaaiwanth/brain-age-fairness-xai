@@ -1,47 +1,69 @@
 # Brain-age prediction and fairness audit on IXI
 
-Working title: *"Right for the Wrong Reasons? Auditing Brain-Age Model Fairness Beyond Accuracy"* (see `implementation.md` for the original plan).
+Working title: *"Right for the Wrong Reasons? Auditing Brain-Age Model Fairness Beyond Accuracy"*.
 
-This repository applies two pretrained brain-age networks to T1-weighted MRI from the [IXI dataset](https://brain-development.org/ixi-dataset/):
-**SFCN** (3D CNN, UK Biobank; Peng et al., 2021) and **DeepBrainNet** (2D CNN over axial slices; Bashyam et al., 2020).
-It rebuilds the preprocessing to match each model's reference input, corrects an earlier label error, and fine-tunes SFCN on IXI.
+## Overview and objectives
 
-## Status and results
+A brain-age model predicts a person's age from a T1-weighted MRI; the gap between predicted and chronological age (the brain-age gap) is a candidate biomarker, so it matters whether the model is **fair beyond accuracy**.
+This project fine-tunes pretrained brain-age CNNs on the public [IXI dataset](https://brain-development.org/ixi-dataset/) (T1 MRI, three acquisition sites, ages 20-86) and asks:
 
-| Stage | Result |
-|---|---|
-| Zero-shot DeepBrainNet, all 485 labelled subjects | MAE 6.50 y, r = 0.877 (`phase2_corrected/reports/accuracy_report_all_inclusive.md`) |
-| Zero-shot SFCN | MAE 13.86 y overall, 6.28 y on ages 42-82 (its output range); see `phase2_corrected/reports/accuracy_report_sfcn_all_inclusive.md` |
-| Fine-tuned SFCN, stage B (last two blocks), validation | best MAE 4.29 y |
-| Fine-tuned SFCN, stage C (full network), validation | best MAE 3.88 y |
-| **Fine-tuned SFCN, stage C, held-out test (73 subjects)** | **MAE 4.07 y, 95% CI [3.43, 4.76]**, r = 0.96 |
+1. How accurate are the models, and what does fine-tuning add over zero-shot use?
+2. Do prediction error or the brain-age gap differ by sex or acquisition site once age is controlled for?
+3. Where in the brain do the models' attributions fall, and do those patterns differ between groups?
 
-Details, baselines and confidence intervals are in `phase4_finetune/README.md` and `phase4_finetune/reports/test_protocol_verification.md`.
+The project is a methods and fairness audit on healthy volunteers; it makes no clinical claims.
+The step-by-step plan is in [`implementation.md`](implementation.md); the living status, data layout and analysis rules are in [`PROJECT_GUIDE.md`](PROJECT_GUIDE.md).
+
+## Workflow
+
+| Phase | Content | Where |
+|---|---|---|
+| 1-2 | Data indexing, labels from the official `IXI.xls`, preprocessing to each model's reference input | [`notebooks/`](notebooks/), [`scripts/`](scripts/) (team pipeline, "v2"), [`experiments/preprocessing/`](experiments/preprocessing/) (alternative pipeline used by the experiments) |
+| 3-5 | Zero-shot validation, fine-tuning, one-shot test evaluation | [`scripts/`](scripts/) (SFCN, team pipeline); [`experiments/sfcn/`](experiments/sfcn/README.md) and [`experiments/deepbrainnet/`](experiments/deepbrainnet/README.md) (additional fine-tuning experiments) |
+| 6 | Fairness audit (sex, acquisition site; age-controlled) and leave-one-site-out analysis | [`scripts/06_fairness_audit.py`](scripts/06_fairness_audit.py), [`scripts/06b_loso_analysis.py`](scripts/06b_loso_analysis.py) |
+| 7 | Grad-CAM attribution and atlas-based comparison across sex and site | [`scripts/07_gradcam.py`](scripts/07_gradcam.py) |
+| 8 | Report | not started |
+
+## Results summary
+
+All numbers are held-out **test** MAE on the same 73-subject test split (339 / 73 / 73 train / validation / test), evaluated once per pipeline; 95% bootstrap intervals in brackets.
+
+| Pipeline | Model | Test MAE (years) | r | Documentation |
+|---|---|---|---|---|
+| Team pipeline (`scripts/`) | SFCN, fine-tuned, "v2" preprocessing | 3.71 [3.10, 4.38] | 0.966 | [`PROJECT_GUIDE.md`](PROJECT_GUIDE.md) (Phase 5) |
+| `experiments/sfcn` | SFCN, fine-tuned (70 bins, `experiments/preprocessing` volumes) | 4.07 [3.43, 4.76] | 0.96 | [`experiments/sfcn/README.md`](experiments/sfcn/README.md) |
+| `experiments/deepbrainnet` | DeepBrainNet, fine-tuned (blocks 4-5 + head) | 4.53 [3.86, 5.23] | 0.95 | [`experiments/deepbrainnet/README.md`](experiments/deepbrainnet/README.md) |
+| Reference | DeepBrainNet zero-shot / + linear calibration | 6.32 / 6.29 | 0.89 | same |
+
+Fairness and attribution findings from the team pipeline (details, intervals and caveats in [`PROJECT_GUIDE.md`](PROJECT_GUIDE.md), Phases 6-7): no detectable sex difference in the age-corrected brain-age gap; an **acquisition-site effect at IOP** (age-corrected gap lower than Guys by about 5 years, 95% CI -8.66 to -1.34, with only 9 IOP test subjects); accuracy falls by about 3 years when IOP is left out of training; and attribution patterns differ between acquisition sites but not between sexes.
 
 **Read these caveats with the numbers**
-- Checkpoints were selected on validation MAE; the test split was evaluated once, afterwards.
-- Earlier zero-shot checks of the *preprocessing pipeline* used all 485 subjects (3 of 20 pilot subjects and 22 of 100 in an orientation test are test-split subjects). They involved no fitting and changed no decision, but they were not isolated from test labels.
-- Single seed and single split; the intervals reflect only which 73 subjects were drawn. Age bands and sites have small groups (for example 6 test subjects aged 40-49, 9 from IOP), so subgroup numbers are descriptive only.
-- IXI has three sites and all appear in training: the results do **not** show generalisation to unseen scanners or sites.
-- The fairness analysis (age/site-adjusted tests) has **not** been repeated on the corrected labels and fine-tuned model. Earlier fairness outputs were removed because they came from mis-aligned labels (`analysis/README.md`).
+- The three fine-tuned models were each selected on validation data and then evaluated once on the **same** test split. These test results must not be used to choose between pipelines; any such choice has to be made on validation data only. Within the two `experiments/` evaluations the SFCN-versus-DeepBrainNet difference (+0.45 y, 95% CI [-0.38, +1.26]) is not distinguishable from zero.
+- The SFCN and DeepBrainNet experiments in `experiments/` use the [`experiments/preprocessing/`](experiments/preprocessing/) volumes and have **not** had a fairness or attribution analysis; those analyses apply to the team's SFCN pipeline.
+- Single seed and single split everywhere; the intervals reflect only which 73 subjects were drawn. Subgroups are small (for example 6 test subjects aged 40-49, 9 from IOP), so subgroup numbers are descriptive.
+- IXI has three sites and all appear in training: the results do **not** show generalisation to unseen scanners or sites. In IXI, site is confounded with the population each site recruited.
+- Earlier zero-shot checks of the `experiments/preprocessing` pipeline used all 485 subjects (3 of 20 pilot subjects and 22 of 100 in an orientation test are test-split subjects); they involved no fitting and changed no decision, but they were not isolated from the test labels.
+- Analyses done on the original, mis-labelled data are invalid (see below); the earlier sex-disparity outputs were removed (`experiments/analysis/README.md`).
+
+## Repository structure
+
+| Path | Purpose |
+|---|---|
+| [`README.md`](README.md), [`PROJECT_GUIDE.md`](PROJECT_GUIDE.md), [`implementation.md`](implementation.md) | Overview, living project guide (status, data layout, analysis rules), original plan |
+| `notebooks/` | Phase 1-3 notebooks (data indexing, original preprocessing, zero-shot validation; Colab oriented) |
+| `scripts/` | Team pipeline: official labels, v2 preprocessing, SFCN fine-tuning and test evaluation, fairness audit, leave-one-site-out, Grad-CAM |
+| [`experiments/preprocessing/`](experiments/preprocessing/README.md) | Alternative preprocessing, zero-shot inference, accuracy reports, input verification, label rebuild; `experiments/preprocessing/legacy/` holds the original, superseded preprocessing script |
+| `experiments/sfcn/` | SFCN fine-tuning experiment: training and evaluation code, reports, [README](experiments/sfcn/README.md) |
+| `experiments/deepbrainnet/` | DeepBrainNet fine-tuning experiment (PyTorch port of the Keras model): code, reports, [README](experiments/deepbrainnet/README.md) |
+| [`experiments/data_splits/`](experiments/data_splits/README.md) | Train/validation/test assignment (IDs only) and the list of excluded scans |
+| [`experiments/analysis/`](experiments/analysis/README.md) | Sex-disparity analysis script (no valid results published yet) |
+| `external/` | **Not tracked.** Local clones of the two pretrained-model repositories (below) |
 
 ## An important correction
 
 An early version of this project attached age and sex to the wrong subjects (a row-index column had been used as the IXI ID), which made correct models look broken.
-`CASE_STUDY_iAudit_vs_ml_brain.md` documents how it was found (by comparison with the public iAudit repository), the evidence, and the fix.
-Labels are now rebuilt from the genuine `IXI.xls` joined on `IXI_ID` (`phase2_corrected/label_fix/build_labels.py`).
-
-## Repository layout
-
-| Path | Purpose |
-|---|---|
-| `notebooks/` | Phase 1-3 notebooks (data indexing, original preprocessing, zero-shot validation; Colab oriented) |
-| `phase2_corrected/` | Corrected preprocessing, inference, accuracy reports, input verification, label rebuild |
-| `phase4_finetune/` | SFCN transfer learning: cache, smoke tests, training, validation and one-shot test evaluation |
-| `splits/` | Train/validation/test assignment (IDs only) and the list of excluded scans |
-| `analysis/` | Sex-disparity analysis script (no valid results published yet) |
-| `external/` | **Not tracked.** Local clones of the two pretrained-model repositories (below) |
-| `implementation.md`, `CASE_STUDY_iAudit_vs_ml_brain.md` | Plan and the label-error case study |
+It was found by comparing against the public iAudit repository, whose per-subject ages agree with the corrected labels.
+Labels are now rebuilt from the genuine `IXI.xls` joined on `IXI_ID` (`experiments/preprocessing/label_fix/build_labels.py`).
 
 ## Setup
 
@@ -70,40 +92,32 @@ git -C DeepBrainNet lfs pull                       # if this is blocked, downloa
 sha256sum DeepBrainNet/Models/DBN_model.h5          # must match the table
 ```
 
-`phase2_corrected/infer.py` refuses to run DeepBrainNet if the weights' size or SHA256 differ, and loads SFCN with `strict=True`.
+`experiments/preprocessing/infer.py` refuses to run DeepBrainNet if the weights' size or SHA256 differ, and loads SFCN with `strict=True`.
 (antspynet's `brainAgeDeepBrainNet` weights are a byte-identical copy of `DBN_model.h5`.) Weights are never committed or modified by this project; fine-tuned checkpoints are written to separate files.
 
 ### Data (not redistributed)
 
 - IXI T1 scans and the demographics spreadsheet `IXI.xls` (CC BY-SA 3.0; cite the source) from <https://brain-development.org/ixi-dataset/>.
-- Registration templates: `phase2_corrected/assets/README.md`.
-- Paths are configured at the top of `phase2_corrected/common.py` (`PROJECT_DIR`, currently `G:\My Drive\ML_Project`); edit it for your machine. Large outputs (volumes, predictions, QC records) are written under that folder, not into Git.
+- Registration templates: `experiments/preprocessing/assets/README.md`.
+- Paths are configured at the top of `experiments/preprocessing/common.py` (`PROJECT_DIR`, currently `G:\My Drive\ML_Project`); edit it for your machine. Large outputs (volumes, predictions, QC records) are written under that folder, not into Git.
 
-## Reproducing the pipeline
+## Reproducing preprocessing and zero-shot inference
 
 ```
 # 1. labels: build the scan index with the Phase 1 notebook, then rebuild labels from the genuine IXI.xls
-python phase2_corrected/label_fix/build_labels.py --xls <path/to/IXI.xls> --out <PROJECT_DIR>
+python experiments/preprocessing/label_fix/build_labels.py --xls <path/to/IXI.xls> --out <PROJECT_DIR>
 # 2. preprocessing (resumable) and zero-shot inference
-python phase2_corrected/preprocess.py --pilot            # small check first
-python phase2_corrected/preprocess.py --all --retry-failed --workers 3
-python phase2_corrected/infer.py --model dbn  --subset all
-python phase2_corrected/infer.py --model sfcn --subset all
-python phase2_corrected/accuracy_report.py --pred <dbn_predictions_all.csv> --tag all_inclusive
-python phase2_corrected/verify_inputs.py                 # orientation / tensor / split checks
-python phase2_corrected/to_npy.py                        # optional .npy copies
-# 3. fine-tuning (see phase4_finetune/README.md for the reasoning)
-python phase4_finetune/build_cache.py
-python phase4_finetune/smoke_test.py
-python phase4_finetune/train.py --run headA --stage head    --init pretrained --epochs 40 --patience 8
-python phase4_finetune/train.py --run partB --stage partial --init phase4_finetune/checkpoints/headA/best.pt --epochs 25 --patience 6 --lr-head 3e-4 --lr-backbone 3e-5
-python phase4_finetune/train.py --run fullC --stage full    --init phase4_finetune/checkpoints/partB/best.pt --epochs 20 --patience 5 --lr-head 1e-4 --lr-backbone 1e-5
-python phase4_finetune/report_val.py
-python phase4_finetune/evaluate_test.py                  # one-shot; refuses to run again without --force
-python phase4_finetune/verify_test_protocol.py
+python experiments/preprocessing/preprocess.py --pilot            # small check first
+python experiments/preprocessing/preprocess.py --all --retry-failed --workers 3
+python experiments/preprocessing/infer.py --model dbn  --subset all
+python experiments/preprocessing/infer.py --model sfcn --subset all
+python experiments/preprocessing/accuracy_report.py --pred <dbn_predictions_all.csv> --tag all_inclusive
+python experiments/preprocessing/verify_inputs.py                 # orientation / tensor / split checks
+python experiments/preprocessing/to_npy.py                        # optional .npy copies
+# 3. fine-tuning experiments: see experiments/sfcn/README.md and experiments/deepbrainnet/README.md
 ```
 
-`phase2_corrected/run_rest_after_preprocess.sh` is an optional wrapper that chains preprocessing, DeepBrainNet inference and the reports; it contains hard-coded `G:` paths and must be adapted.
+The two fine-tuning experiments document their own commands. `experiments/preprocessing/run_rest_after_preprocess.sh` is an optional wrapper that chains preprocessing, DeepBrainNet inference and the reports; it contains hard-coded `G:` paths and must be adapted.
 
 ## What is not in Git
 
@@ -113,7 +127,7 @@ are generated or third-party and are listed in `.gitignore`. Reports refer to so
 ## Licences and attribution
 
 IXI data: CC BY-SA 3.0 (cite the IXI project). SFCN code and weights: MIT (Han Peng). DeepBrainNet: no licence file; the repository is therefore not redistributed here, and only a figure showing
-one of its sample slices is included in `phase2_corrected/reports/input_verification.png`. The comparison repository iAudit (<https://github.com/sudarsan2507-hue/iAudit>) is MIT licensed. The registration template (TemplateFlow `MNI152Lin`, ICBM152) is under the permissive MNI/McGill licence (keep the copyright notice; see `phase2_corrected/assets/README.md`).
+one of its sample slices is included in `experiments/preprocessing/reports/input_verification.png`. The comparison repository iAudit (<https://github.com/sudarsan2507-hue/iAudit>) is MIT licensed. The registration template (TemplateFlow `MNI152Lin`, ICBM152) is under the permissive MNI/McGill licence (keep the copyright notice; see `experiments/preprocessing/assets/README.md`).
 This repository does not yet declare its own licence.
 
 References: Peng et al. (2021), *Medical Image Analysis* 68:101871; Bashyam et al. (2020), *Brain* 143(7):2312-2324.
