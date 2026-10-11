@@ -1,0 +1,116 @@
+[
+ {
+  "check": "1. starting model reproduces the reference (Keras) predictions",
+  "passed": true,
+  "detail": "6 val subjects: max |diff| 0.0027 y"
+ },
+ {
+  "check": "2. stage 'head': freezing / gradients",
+  "passed": true,
+  "detail": "trainable 526,337/15,241,025; frozen params have no grad: True; trainable grads finite & non-zero: True; loss 17.2"
+ },
+ {
+  "check": "2. stage 'last1': freezing / gradients",
+  "passed": true,
+  "detail": "trainable 7,605,761/15,241,025; frozen params have no grad: True; trainable grads finite & non-zero: True; loss 14.6"
+ },
+ {
+  "check": "2. stage 'last2': freezing / gradients",
+  "passed": true,
+  "detail": "trainable 13,505,537/15,241,025; frozen params have no grad: True; trainable grads finite & non-zero: True; loss 16.2"
+ },
+ {
+  "check": "2. stage 'full': freezing / gradients",
+  "passed": true,
+  "detail": "trainable 15,241,025/15,241,025; frozen params have no grad: True; trainable grads finite & non-zero: True; loss 17.6"
+ },
+ {
+  "check": "3. stage 'head' fits in GPU memory at batch 32",
+  "passed": true,
+  "detail": "peak 1.14 GB, 279 images/s fwd+bwd"
+ },
+ {
+  "check": "3. stage 'last1' fits in GPU memory at batch 32",
+  "passed": true,
+  "detail": "peak 1.17 GB, 250 images/s fwd+bwd"
+ },
+ {
+  "check": "3. stage 'last2' fits in GPU memory at batch 32",
+  "passed": true,
+  "detail": "peak 1.20 GB, 180 images/s fwd+bwd"
+ },
+ {
+  "check": "3. stage 'full' fits in GPU memory at batch 32",
+  "passed": true,
+  "detail": "peak 1.95 GB, 98 images/s fwd+bwd"
+ },
+ {
+  "check": "4. stage 'head' updates exactly the intended layers",
+  "passed": true,
+  "detail": "changed: head.fc1 (3e-03), head.fc2 (3e-03); unchanged: features.block1_conv1, features.block5_conv3"
+ },
+ {
+  "check": "4. stage 'last1' updates exactly the intended layers",
+  "passed": true,
+  "detail": "changed: head.fc1 (3e-03), features.block5_conv3 (3e-03); unchanged: features.block4_conv3, features.block1_conv1"
+ },
+ {
+  "check": "4. stage 'last2' updates exactly the intended layers",
+  "passed": true,
+  "detail": "changed: head.fc2 (3e-03), features.block4_conv1 (3e-03), features.block5_conv3 (3e-03); unchanged: features.block3_conv3, features.block1_conv1"
+ },
+ {
+  "check": "4. stage 'full' updates exactly the intended layers",
+  "passed": true,
+  "detail": "changed: head.fc1 (3e-03), features.block5_conv3 (3e-03), features.block1_conv1 (3e-03)"
+ },
+ {
+  "check": "5. full network learns on 2 subjects (dropout off for this sanity check)",
+  "passed": true,
+  "detail": "slice MAE 5.60 -> 4.00 (x1.4 lower)"
+ },
+ {
+  "check": "5b. validation loop + checkpoint round trip",
+  "passed": true,
+  "detail": "reloaded best.pt gives val MAE 6.295 vs recorded 6.295"
+ },
+ {
+  "check": "5c. early stopping",
+  "passed": true,
+  "detail": "stopped after 2 epochs (patience 2); best = epoch 0 (the starting point)"
+ },
+ {
+  "check": "5d. original pretrained weights untouched",
+  "passed": true,
+  "detail": "sha256 identical before/after"
+ },
+ {
+  "check": "6. default backbone LR (1e-5) trains stably",
+  "passed": true,
+  "detail": "5.63 -> 4.21"
+ },
+ {
+  "lr_probe": [
+   {
+    "lr": "1e-5",
+    "start": 5.631894810994466,
+    "end": 4.211910057067871
+   },
+   {
+    "lr": "3e-5",
+    "start": 5.421035957336426,
+    "end": 2.3634216944376627
+   },
+   {
+    "lr": "1e-4",
+    "start": 5.010526021321614,
+    "end": 1.3456584930419921
+   },
+   {
+    "lr": "3e-4",
+    "start": 4.803395652770996,
+    "end": 0.8837890625
+   }
+  ]
+ }
+]
