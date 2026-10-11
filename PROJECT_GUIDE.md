@@ -28,7 +28,12 @@ Audit whether a brain-age model is fair beyond accuracy (working title: *"Right 
     - 36 scans flagged "cut off": a brain touches a crop face the template brain does not reach. Typically 0–1 voxels; worst IXI156, a 1 mm sliver at the back. Kept.
     - IXI457 flagged for native brain volume 2,024 mL, just over the 2,000 mL check; looks normal on inspection. Kept.
     - IXI292 (IOP) is visibly blurrier as acquired. That is an acquisition-site effect, not a preprocessing failure.
-- **Phase 3 (zero-shot validation): decision SFCN stands; the original numbers are invalid** (old labels, v1 data). On v2 data with SFCN's input scaling and the official labels, the original un-fine-tuned SFCN on 30 validation subjects gives **r 0.93** (r 0.82 and MAE 4.6 yrs within its 45–80 training range). SFCN is also 3D, so Grad-CAM needs no per-slice aggregation.
+- **Phase 3 (zero-shot validation): redone 2026-10-11 with the official labels, `scripts/03b_zero_shot.py`, results in `results/phase3/`.** The original UK Biobank SFCN (40 bins, ages 42–82), un-fine-tuned, on v2 data and the full validation split (n = 73), 95% bootstrap CIs:
+  - Raw: MAE 10.21 [8.19, 12.29], r 0.910 [0.869, 0.943], mean BAG +8.33. Its outputs cannot leave 42–82, so everyone under ~45 is predicted 51–61.
+  - Ages 42–82 only (n = 51): MAE 5.32 [4.25, 6.41], r 0.842.
+  - With a linear correction fitted on the train split (pred = 0.340·age + 44.19): MAE 6.85 [5.80, 7.94].
+  - Fine-tuned Phase 4 model, same subjects: MAE 3.91 [3.25, 4.60], r 0.961 [0.945, 0.974]. Fine-tuning roughly halves the error compared with the best zero-shot option.
+  - Decision unchanged: SFCN. It is already strongly age-related zero-shot, and it is 3D, so Grad-CAM needs no per-slice aggregation. The old Phase 3 numbers (wrong labels, v1 data) must not be reported.
 - **Phase 4 (fine-tuning): done (2026-10-09).** `scripts/04_finetune_sfcn.py`, v2 volumes, official labels, 339 train / 73 val, age bins 18–90 (72 bins).
   - **Val MAE 3.90 yrs (95% CI 3.23–4.60), r 0.961 (95% CI 0.946–0.974)**, prediction sd 14.2 vs real-age sd 16.4. Best epoch 30 (stage 2); early stop at 45. Train MAE ~2.7 by the end, so a modest train/val gap.
   - Already in stage 1 (frozen backbone) val r was 0.84–0.87.
