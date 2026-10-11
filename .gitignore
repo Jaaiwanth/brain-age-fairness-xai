@@ -101,3 +101,9 @@ phase5_dbn_finetune/*.log
 
 # DeepBrainNet model checkpoints
 phase5_dbn_finetune/checkpoints/
+
+# DeepBrainNet per-subject predictions and test-run marker (aggregate tables and figures stay tracked)
+phase5_dbn_finetune/reports/test_predictions_last2C.csv
+phase5_dbn_finetune/reports/last2C_val_predictions.csv
+phase5_dbn_finetune/reports/test_evaluated.json
+phase5_dbn_finetune/smoke_results.json
