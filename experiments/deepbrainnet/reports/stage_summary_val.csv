@@ -1,0 +1,6 @@
+model,run,epoch,n,MAE,RMSE,bias,r,slope,MAE_meanagg
+A_head_only,headA,25,73,4.758,6.373,-2.342,0.935,0.821,4.819
+B_+block5,last1B,7,73,4.514,6.088,-2.255,0.94,0.851,4.593
+C_+blocks4-5,last2C,10,73,4.12,5.577,-1.811,0.948,0.856,4.205
+zero-shot DeepBrainNet,-,0,73,5.37,,,,,
+zero-shot + linear calibration (train-fitted),-,0,73,5.575,,,,,
