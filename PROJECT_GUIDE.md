@@ -86,6 +86,26 @@ Audit whether a brain-age model is fair beyond accuracy (working title: *"Right 
     - IOP is the most distinct site, the same site that shows the brain-age-gap offset and the leave-one-site-out accuracy drop.
     - This shows the information is **present**. It does not show the age prediction **uses** it. That needs an intervention (acquisition perturbation or harmonisation; next steps).
   - Exploratory link to BAG: uninformative. The probe's P(IOP) is ~0 or ~1 for nearly everyone, so it adds nothing beyond the site label (overall Spearman ρ −0.16, within-site p = 0.96).
+- **Phase 9b (acquisition stress test): done (2026-10-13).** `scripts/09_acquisition_stress_test.py`, results in `results/phase9b_stress_test/` (also on Drive). It took 25 min on a laptop CPU.
+  - Question: Phase 9a showed site is readable from the features. Does the age prediction respond to acquisition appearance when the anatomy is unchanged?
+  - Method:
+    - The frozen Phase 4 model was run on the 146 held-out subjects. Nothing was fitted to them.
+    - Site intensity swap: each brain's intensity distribution was quantile-matched to a target site's reference (101 quantiles).
+    - The references were built from train subjects and standardised to a common age and sex mix (per-site regression of quantiles on age, age² and sex). This is needed because IOP's train subjects are younger (mean 40.6 vs 48.4 Guys, 47.3 HH).
+    - Effects are compared with the own-site match, which uses the same procedure.
+    - Single-property sweeps on 40 subjects: contrast, noise, blur and smooth non-uniformity.
+    - Outcome: paired change in raw predicted age, with 95% bootstrap CIs.
+  - Results (age-standardised references; change vs own-site match):
+    - HH → IOP look: −3.92 yrs [−4.47, −3.38]; 45 of 45 younger.
+    - IOP → HH look: +3.14 [+2.44, +3.97]; 18 of 18 older.
+    - Guys → HH look: +3.31 (matrix); HH → Guys look: −2.87.
+    - Guys → IOP look: +0.11 [−0.18, +0.39]. IOP → Guys look: +0.90 [+0.17, +1.70].
+    - Sweeps: blur σ 1.5 voxels −3.17 [−5.11, −1.24]; contrast γ 0.8 −0.92 [−1.27, −0.58]; 5% noise +0.36; ±10% non-uniformity −0.22 / +0.35.
+  - Reading:
+    - **The age prediction responds to acquisition appearance.** Changing only the intensity distribution to another site's moves predicted age by 3–4 years, in the same direction for every subject. Image smoothness also shifts it by about 3 years.
+    - **Global intensity does not explain the IOP offset.** Between Guys and IOP the appearance swap moves predictions by about 1 year or less, far below the −5.06-year corrected-BAG offset. The offset must come from other image properties (e.g. spatial resolution or smoothness) or from cohort differences.
+    - The HH appearance is the one the model is most sensitive to, but HH subjects themselves show no BAG offset (Phase 6). This is consistent with the model having learned HH's appearance together with its anatomy.
+  - Without age standardisation (`results/phase9b_stress_test_unadjusted/`), Guys → IOP was −0.60 and IOP → Guys +1.60. Part of the apparent IOP look effect was IOP's younger recruitment, which shows why the standardisation was needed.
 - **Phase 8 (report): not started.**
 
 ## Data location
