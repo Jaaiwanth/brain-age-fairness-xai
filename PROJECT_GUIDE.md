@@ -67,6 +67,25 @@ Audit whether a brain-age model is fair beyond accuracy (working title: *"Right 
   - **Sex: no region differs** (coarse or fine, all FDR q > 0.05).
   - **Site: attribution patterns differ between acquisition sites.** Compared with Guys, HH and IOP scans place less attribution on deep grey matter (HH −1.14, IOP −1.29 percentage points) and on the hippocampus/amygdala (−0.25, −0.28), and more on the cerebellum/unlabelled class (HH +2.66; IOP +1.98, q = 0.07). IOP also places less on the brainstem (−0.90). 43 fine region × site terms pass FDR; most are small (< 0.5 pp).
   - Reading: attribution patterns are associated with acquisition site, not with sex. This matches Phase 6, where BAG and accuracy differed by site but not by sex. The design cannot say whether the differences come from scanner/protocol differences in the images or from the cohorts recruited at each site. The finding is not evidence about the people scanned (Rules 3 and 4).
+- **Phase 9a (site probe, "right for the wrong reasons?"): done (2026-10-13).** `scripts/08_site_probe.py`, results in `results/phase9a_site_probe/` (also on Drive). It took 43 min on a laptop CPU.
+  - Question: the model was trained only on age. Does its 64-d internal summary (global-average-pooled features, which the age head reads) also carry the acquisition site?
+  - Method:
+    - A linear probe (multinomial logistic regression, class-balanced; C chosen by 5-fold CV on train) is fitted on the 339 train subjects and scored on the 146 held-out subjects (val + test).
+    - Metric: balanced accuracy, chance 33.3%; 95% bootstrap CIs.
+    - "Age/sex removed" means age, age² and sex are regressed out of the features first (fit on train).
+    - The age model is not changed, and test subjects are used only to score the probe.
+  - Results:
+    - Age + sex only: 40.8% [31.2, 50.9]. Who was recruited explains almost none of the site.
+    - Brain-intensity quantiles of the preprocessed input: 99.6% [98.7, 100]. Site remains visible in the images after N4, skull-stripping and registration.
+    - Pretrained SFCN, never trained on IXI: 92.8% [87.2, 96.9].
+    - Fine-tuned SFCN: 93.5% [88.1, 97.7].
+    - Fine-tuned SFCN, age/sex removed: 91.2% [86.6, 95.2]. All 18 held-out IOP subjects are identified, and no Guys or HH subject is called IOP; Guys and HH are partly confused.
+  - Reading:
+    - Site information is strongly present in the representation the age prediction is read from, even after removing age and sex.
+    - It is already there in the pretrained model, so it comes from image appearance, not from fine-tuning on IXI.
+    - IOP is the most distinct site, the same site that shows the brain-age-gap offset and the leave-one-site-out accuracy drop.
+    - This shows the information is **present**. It does not show the age prediction **uses** it. That needs an intervention (acquisition perturbation or harmonisation; next steps).
+  - Exploratory link to BAG: uninformative. The probe's P(IOP) is ~0 or ~1 for nearly everyone, so it adds nothing beyond the site label (overall Spearman ρ −0.16, within-site p = 0.96).
 - **Phase 8 (report): not started.**
 
 ## Data location
