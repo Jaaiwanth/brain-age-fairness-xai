@@ -106,6 +106,14 @@ Audit whether a brain-age model is fair beyond accuracy (working title: *"Right 
     - **Global intensity does not explain the IOP offset.** Between Guys and IOP the appearance swap moves predictions by about 1 year or less, far below the −5.06-year corrected-BAG offset. The offset must come from other image properties (e.g. spatial resolution or smoothness) or from cohort differences.
     - The HH appearance is the one the model is most sensitive to, but HH subjects themselves show no BAG offset (Phase 6). This is consistent with the model having learned HH's appearance together with its anatomy.
   - Without age standardisation (`results/phase9b_stress_test_unadjusted/`), Guys → IOP was −0.60 and IOP → Guys +1.60. Part of the apparent IOP look effect was IOP's younger recruitment, which shows why the standardisation was needed.
+- **Phase 9c (image sharpness by site): done (2026-10-13).** `scripts/10_image_quality_by_site.py`, results in `results/phase9c_image_quality/` (also on Drive). It took 5 min on CPU for all 485 subjects.
+  - Native resolution is the **same** at every site: 0.94 × 0.94 × 1.2 mm (matrix 256×256×150; 146 slices at IOP). Resolution therefore does not explain any site effect.
+  - Effective sharpness of the model input differs strongly. Age- and sex-adjusted, HC3, compared with Guys:
+    - IOP is much blurrier: gradient sharpness −2.09 SD, Laplacian sharpness −2.21 SD, smoothness FWHM +0.87 mm (+2.38 SD); all p < 1e-100. IOP barely overlaps the other sites on the scatter plots.
+    - HH is slightly softer than Guys on gradient sharpness (−0.89 SD) and nearly identical on the other two measures.
+    - So, with the same nominal voxel size, IOP images are smoother, presumably from scanner reconstruction or filtering. Phase 9b showed that blurring lowers predicted age (σ 1.5 voxels: −3.17 yrs).
+  - Regression adjustment cannot separate sharpness from site on held-out subjects. IOP and sharpness are almost collinear, so adding a sharpness covariate makes the IOP effect swing between +1.9 and −10 yrs with very wide CIs. The sharpness measures also change with age, in opposite directions, because they partly measure anatomy. This adjustment is therefore inconclusive and is not reported as mediation.
+  - Reading: IOP is the blurriest site by a wide margin, and blur lowers predicted age. That makes image smoothness a plausible acquisition-related contributor to the IOP offset, but not yet shown to be one. The direct test is to blur Guys scans to IOP's measured smoothness and measure the age shift.
 - **Phase 8 (report): not started.**
 
 ## Data location
