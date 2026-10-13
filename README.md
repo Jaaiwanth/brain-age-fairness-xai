@@ -34,6 +34,9 @@ All numbers are held-out **test** MAE on the same 73-subject test split (339 / 7
 | `experiments/sfcn` | SFCN, fine-tuned (70 bins, `experiments/preprocessing` volumes) | 4.07 [3.43, 4.76] | 0.96 | [`experiments/sfcn/README.md`](experiments/sfcn/README.md) |
 | `experiments/deepbrainnet` | DeepBrainNet, fine-tuned (blocks 4-5 + head) | 4.53 [3.86, 5.23] | 0.95 | [`experiments/deepbrainnet/README.md`](experiments/deepbrainnet/README.md) |
 | Reference | DeepBrainNet zero-shot / + linear calibration | 6.32 / 6.29 | 0.89 | same |
+| Reference | SFCN zero-shot / + linear calibration (`experiments/preprocessing` volumes) | 13.05 / 5.71 | 0.90 | [`experiments/sfcn/README.md`](experiments/sfcn/README.md) |
+
+On **validation** (n = 73), where comparisons between pipelines are allowed, the two fine-tuned SFCNs are equivalent (MAE 3.90 team pipeline, 3.88 `experiments/sfcn`); fine-tuned DeepBrainNet reaches 4.12. Zero-shot SFCN on the team pipeline's validation volumes gives MAE 10.21 [8.19, 12.29], r 0.910 (6.85 with a train-fitted linear correction), because its UK Biobank head cannot predict outside ages 42-82 (`scripts/03b_zero_shot.py`, `PROJECT_GUIDE.md` Phase 3).
 
 Fairness and attribution findings from the team pipeline (details, intervals and caveats in [`PROJECT_GUIDE.md`](PROJECT_GUIDE.md), Phases 6-7): no detectable sex difference in the age-corrected brain-age gap; an **acquisition-site effect at IOP** (age-corrected gap lower than Guys by about 5 years, 95% CI -8.66 to -1.34, with only 9 IOP test subjects); accuracy falls by about 3 years when IOP is left out of training; and attribution patterns differ between acquisition sites but not between sexes.
 
@@ -41,7 +44,7 @@ Fairness and attribution findings from the team pipeline (details, intervals and
 - The three fine-tuned models were each selected on validation data and then evaluated once on the **same** test split. These test results must not be used to choose between pipelines; any such choice has to be made on validation data only. Within the two `experiments/` evaluations the SFCN-versus-DeepBrainNet difference (+0.45 y, 95% CI [-0.38, +1.26]) is not distinguishable from zero.
 - The SFCN and DeepBrainNet experiments in `experiments/` use the [`experiments/preprocessing/`](experiments/preprocessing/) volumes and have **not** had a fairness or attribution analysis; those analyses apply to the team's SFCN pipeline.
 - Single seed and single split everywhere; the intervals reflect only which 73 subjects were drawn. Subgroups are small (for example 6 test subjects aged 40-49, 9 from IOP), so subgroup numbers are descriptive.
-- IXI has three sites and all appear in training: the results do **not** show generalisation to unseen scanners or sites. In IXI, site is confounded with the population each site recruited.
+- All three IXI sites appear in the main model's training data. Generalisation to an unseen site was tested only by the leave-one-site-out analysis (`scripts/06b_loso_analysis.py`, `PROJECT_GUIDE.md` Phase 6). In that analysis HH generalises, but a model that never saw IOP is about 3 years less accurate there. With only three sites, this says nothing about scanners outside IXI. In IXI, site is confounded with the population each site recruited.
 - Earlier zero-shot checks of the `experiments/preprocessing` pipeline used all 485 subjects (3 of 20 pilot subjects and 22 of 100 in an orientation test are test-split subjects); they involved no fitting and changed no decision, but they were not isolated from the test labels.
 - Analyses done on the original, mis-labelled data are invalid (see below); the earlier sex-disparity outputs were removed (`experiments/analysis/README.md`).
 
