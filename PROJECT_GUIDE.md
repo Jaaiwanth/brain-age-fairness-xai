@@ -114,6 +114,21 @@ Audit whether a brain-age model is fair beyond accuracy (working title: *"Right 
     - So, with the same nominal voxel size, IOP images are smoother, presumably from scanner reconstruction or filtering. Phase 9b showed that blurring lowers predicted age (σ 1.5 voxels: −3.17 yrs).
   - Regression adjustment cannot separate sharpness from site on held-out subjects. IOP and sharpness are almost collinear, so adding a sharpness covariate makes the IOP effect swing between +1.9 and −10 yrs with very wide CIs. The sharpness measures also change with age, in opposite directions, because they partly measure anatomy. This adjustment is therefore inconclusive and is not reported as mediation.
   - Reading: IOP is the blurriest site by a wide margin, and blur lowers predicted age. That makes image smoothness a plausible acquisition-related contributor to the IOP offset, but not yet shown to be one. The direct test is to blur Guys scans to IOP's measured smoothness and measure the age shift.
+- **Phase 9d (blur to IOP smoothness): done (2026-10-13).** `scripts/11_blur_to_iop.py`, results in `results/phase9d_blur_to_iop/` (also on Drive). It took 38 min on CPU.
+  - Method:
+    - Each held-out Guys (83) and HH (45) brain was Gaussian-blurred, with σ chosen per subject so that its smoothness FWHM rises by its site's age/sex-adjusted gap to IOP (+0.87 mm Guys, +0.82 mm HH). The median σ was 0.61 voxels.
+    - The frozen model predicted age on the original, half-dose and matched volumes. Changes are expressed on the corrected-BAG scale (÷ 0.832).
+  - The blur matched IOP's FWHM (5.55 vs IOP 5.47 mm). It did **not** reproduce IOP's other sharpness measures: gradient 2.53 vs IOP 2.00, Laplacian 0.49 vs IOP 0.59. IOP's softer appearance is therefore not simple Gaussian smoothing.
+  - Result: IOP-level blur does **not** lower predicted age.
+    - Guys: +0.93 yrs [+0.60, +1.28], slightly older.
+    - HH: +0.01 [−0.32, +0.36].
+    - Half dose: ~0 for both.
+    - The test offset is −5.06, so this smoothness reproduces none of it. The −3.17-yr shift in Phase 9b came from much stronger blur (σ 1.5).
+  - Reading across Phase 9:
+    - Site is readable from the model's features (9a).
+    - Predicted age does respond to acquisition appearance, by 3–4 yrs for intensity-distribution swaps, mostly towards HH's appearance (9b).
+    - Yet the two most obvious acquisition explanations for the IOP offset are ruled out at IOP's measured levels: global intensity distribution (≤ ~1 yr, 9b) and Gaussian smoothness (0 or opposite sign, 9d).
+    - The IOP offset therefore comes from acquisition properties not tested here (e.g. the spatial pattern of tissue contrast, scanner-specific reconstruction or distortion), from cohort differences, or from both. IXI cannot separate these.
 - **Phase 8 (report): not started.**
 
 ## Data location
