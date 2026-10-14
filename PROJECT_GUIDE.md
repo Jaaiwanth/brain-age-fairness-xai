@@ -28,7 +28,12 @@ Audit whether a brain-age model is fair beyond accuracy (working title: *"Right 
     - 36 scans flagged "cut off": a brain touches a crop face the template brain does not reach. Typically 0–1 voxels; worst IXI156, a 1 mm sliver at the back. Kept.
     - IXI457 flagged for native brain volume 2,024 mL, just over the 2,000 mL check; looks normal on inspection. Kept.
     - IXI292 (IOP) is visibly blurrier as acquired. That is an acquisition-site effect, not a preprocessing failure.
-- **Phase 3 (zero-shot validation): decision SFCN stands; the original numbers are invalid** (old labels, v1 data). On v2 data with SFCN's input scaling and the official labels, the original un-fine-tuned SFCN on 30 validation subjects gives **r 0.93** (r 0.82 and MAE 4.6 yrs within its 45–80 training range). SFCN is also 3D, so Grad-CAM needs no per-slice aggregation.
+- **Phase 3 (zero-shot validation): redone 2026-10-11 with the official labels, `scripts/03b_zero_shot.py`, results in `results/phase3/`.** The original UK Biobank SFCN (40 bins, ages 42–82), un-fine-tuned, on v2 data and the full validation split (n = 73), 95% bootstrap CIs:
+  - Raw: MAE 10.21 [8.19, 12.29], r 0.910 [0.869, 0.943], mean BAG +8.33. Its outputs cannot leave 42–82, so everyone under ~45 is predicted 51–61.
+  - Ages 42–82 only (n = 51): MAE 5.32 [4.25, 6.41], r 0.842.
+  - With a linear correction fitted on the train split (pred = 0.340·age + 44.19): MAE 6.85 [5.80, 7.94].
+  - Fine-tuned Phase 4 model, same subjects: MAE 3.91 [3.25, 4.60], r 0.961 [0.945, 0.974]. Fine-tuning roughly halves the error compared with the best zero-shot option.
+  - Decision unchanged: SFCN. It is already strongly age-related zero-shot, and it is 3D, so Grad-CAM needs no per-slice aggregation. The old Phase 3 numbers (wrong labels, v1 data) must not be reported.
 - **Phase 4 (fine-tuning): done (2026-10-09).** `scripts/04_finetune_sfcn.py`, v2 volumes, official labels, 339 train / 73 val, age bins 18–90 (72 bins).
   - **Val MAE 3.90 yrs (95% CI 3.23–4.60), r 0.961 (95% CI 0.946–0.974)**, prediction sd 14.2 vs real-age sd 16.4. Best epoch 30 (stage 2); early stop at 45. Train MAE ~2.7 by the end, so a modest train/val gap.
   - Already in stage 1 (frozen backbone) val r was 0.84–0.87.
@@ -62,7 +67,110 @@ Audit whether a brain-age model is fair beyond accuracy (working title: *"Right 
   - **Sex: no region differs** (coarse or fine, all FDR q > 0.05).
   - **Site: attribution patterns differ between acquisition sites.** Compared with Guys, HH and IOP scans place less attribution on deep grey matter (HH −1.14, IOP −1.29 percentage points) and on the hippocampus/amygdala (−0.25, −0.28), and more on the cerebellum/unlabelled class (HH +2.66; IOP +1.98, q = 0.07). IOP also places less on the brainstem (−0.90). 43 fine region × site terms pass FDR; most are small (< 0.5 pp).
   - Reading: attribution patterns are associated with acquisition site, not with sex. This matches Phase 6, where BAG and accuracy differed by site but not by sex. The design cannot say whether the differences come from scanner/protocol differences in the images or from the cohorts recruited at each site. The finding is not evidence about the people scanned (Rules 3 and 4).
-- **Phase 8 (report): not started.** Before writing, redo the Phase 3 zero-shot numbers on validation with the official labels; the old numbers used the wrong labels.
+- **Phase 9a (site probe, "right for the wrong reasons?"): done (2026-10-13).** `scripts/08_site_probe.py`, results in `results/phase9a_site_probe/` (also on Drive). It took 43 min on a laptop CPU.
+  - Question: the model was trained only on age. Does its 64-d internal summary (global-average-pooled features, which the age head reads) also carry the acquisition site?
+  - Method:
+    - A linear probe (multinomial logistic regression, class-balanced; C chosen by 5-fold CV on train) is fitted on the 339 train subjects and scored on the 146 held-out subjects (val + test).
+    - Metric: balanced accuracy, chance 33.3%; 95% bootstrap CIs.
+    - "Age/sex removed" means age, age² and sex are regressed out of the features first (fit on train).
+    - The age model is not changed, and test subjects are used only to score the probe.
+  - Results:
+    - Age + sex only: 40.8% [31.2, 50.9]. Who was recruited explains almost none of the site.
+    - Brain-intensity quantiles of the preprocessed input: 99.6% [98.7, 100]. Site remains visible in the images after N4, skull-stripping and registration.
+    - Pretrained SFCN, never trained on IXI: 92.8% [87.2, 96.9].
+    - Fine-tuned SFCN: 93.5% [88.1, 97.7].
+    - Fine-tuned SFCN, age/sex removed: 91.2% [86.6, 95.2]. All 18 held-out IOP subjects are identified, and no Guys or HH subject is called IOP; Guys and HH are partly confused.
+  - Reading:
+    - Site information is strongly present in the representation the age prediction is read from, even after removing age and sex.
+    - It is already there in the pretrained model, so it comes from image appearance, not from fine-tuning on IXI.
+    - IOP is the most distinct site, the same site that shows the brain-age-gap offset and the leave-one-site-out accuracy drop.
+    - This shows the information is **present**. It does not show the age prediction **uses** it. That needs an intervention (acquisition perturbation or harmonisation; next steps).
+  - Exploratory link to BAG: uninformative. The probe's P(IOP) is ~0 or ~1 for nearly everyone, so it adds nothing beyond the site label (overall Spearman ρ −0.16, within-site p = 0.96).
+- **Phase 9b (acquisition stress test): done (2026-10-13).** `scripts/09_acquisition_stress_test.py`, results in `results/phase9b_stress_test/` (also on Drive). It took 25 min on a laptop CPU.
+  - Question: Phase 9a showed site is readable from the features. Does the age prediction respond to acquisition appearance when the anatomy is unchanged?
+  - Method:
+    - The frozen Phase 4 model was run on the 146 held-out subjects. Nothing was fitted to them.
+    - Site intensity swap: each brain's intensity distribution was quantile-matched to a target site's reference (101 quantiles).
+    - The references were built from train subjects and standardised to a common age and sex mix (per-site regression of quantiles on age, age² and sex). This is needed because IOP's train subjects are younger (mean 40.6 vs 48.4 Guys, 47.3 HH).
+    - Effects are compared with the own-site match, which uses the same procedure.
+    - Single-property sweeps on 40 subjects: contrast, noise, blur and smooth non-uniformity.
+    - Outcome: paired change in raw predicted age, with 95% bootstrap CIs.
+  - Results (age-standardised references; change vs own-site match):
+    - HH → IOP look: −3.92 yrs [−4.47, −3.38]; 45 of 45 younger.
+    - IOP → HH look: +3.14 [+2.44, +3.97]; 18 of 18 older.
+    - Guys → HH look: +3.31 (matrix); HH → Guys look: −2.87.
+    - Guys → IOP look: +0.11 [−0.18, +0.39]. IOP → Guys look: +0.90 [+0.17, +1.70].
+    - Sweeps: blur σ 1.5 voxels −3.17 [−5.11, −1.24]; contrast γ 0.8 −0.92 [−1.27, −0.58]; 5% noise +0.36; ±10% non-uniformity −0.22 / +0.35.
+  - Reading:
+    - **The age prediction responds to acquisition appearance.** Changing only the intensity distribution to another site's moves predicted age by 3–4 years, in the same direction for every subject. Image smoothness also shifts it by about 3 years.
+    - **Global intensity does not explain the IOP offset.** Between Guys and IOP the appearance swap moves predictions by about 1 year or less, far below the −5.06-year corrected-BAG offset. The offset must come from other image properties (e.g. spatial resolution or smoothness) or from cohort differences.
+    - The HH appearance is the one the model is most sensitive to, but HH subjects themselves show no BAG offset (Phase 6). This is consistent with the model having learned HH's appearance together with its anatomy.
+  - Without age standardisation (`results/phase9b_stress_test_unadjusted/`), Guys → IOP was −0.60 and IOP → Guys +1.60. Part of the apparent IOP look effect was IOP's younger recruitment, which shows why the standardisation was needed.
+- **Phase 9c (image sharpness by site): done (2026-10-13).** `scripts/10_image_quality_by_site.py`, results in `results/phase9c_image_quality/` (also on Drive). It took 5 min on CPU for all 485 subjects.
+  - Native resolution is the **same** at every site: 0.94 × 0.94 × 1.2 mm (matrix 256×256×150; 146 slices at IOP). Resolution therefore does not explain any site effect.
+  - Effective sharpness of the model input differs strongly. Age- and sex-adjusted, HC3, compared with Guys:
+    - IOP is much blurrier: gradient sharpness −2.09 SD, Laplacian sharpness −2.21 SD, smoothness FWHM +0.87 mm (+2.38 SD); all p < 1e-100. IOP barely overlaps the other sites on the scatter plots.
+    - HH is slightly softer than Guys on gradient sharpness (−0.89 SD) and nearly identical on the other two measures.
+    - So, with the same nominal voxel size, IOP images are smoother, presumably from scanner reconstruction or filtering. Phase 9b showed that blurring lowers predicted age (σ 1.5 voxels: −3.17 yrs).
+  - Regression adjustment cannot separate sharpness from site on held-out subjects. IOP and sharpness are almost collinear, so adding a sharpness covariate makes the IOP effect swing between +1.9 and −10 yrs with very wide CIs. The sharpness measures also change with age, in opposite directions, because they partly measure anatomy. This adjustment is therefore inconclusive and is not reported as mediation.
+  - Reading: IOP is the blurriest site by a wide margin, and blur lowers predicted age. That makes image smoothness a plausible acquisition-related contributor to the IOP offset, but not yet shown to be one. The direct test is to blur Guys scans to IOP's measured smoothness and measure the age shift.
+- **Phase 9d (blur to IOP smoothness): done (2026-10-13).** `scripts/11_blur_to_iop.py`, results in `results/phase9d_blur_to_iop/` (also on Drive). It took 38 min on CPU.
+  - Method:
+    - Each held-out Guys (83) and HH (45) brain was Gaussian-blurred, with σ chosen per subject so that its smoothness FWHM rises by its site's age/sex-adjusted gap to IOP (+0.87 mm Guys, +0.82 mm HH). The median σ was 0.61 voxels.
+    - The frozen model predicted age on the original, half-dose and matched volumes. Changes are expressed on the corrected-BAG scale (÷ 0.832).
+  - The blur matched IOP's FWHM (5.55 vs IOP 5.47 mm). It did **not** reproduce IOP's other sharpness measures: gradient 2.53 vs IOP 2.00, Laplacian 0.49 vs IOP 0.59. IOP's softer appearance is therefore not simple Gaussian smoothing.
+  - Result: IOP-level blur does **not** lower predicted age.
+    - Guys: +0.93 yrs [+0.60, +1.28], slightly older.
+    - HH: +0.01 [−0.32, +0.36].
+    - Half dose: ~0 for both.
+    - The test offset is −5.06, so this smoothness reproduces none of it. The −3.17-yr shift in Phase 9b came from much stronger blur (σ 1.5).
+  - Reading across Phase 9:
+    - Site is readable from the model's features (9a).
+    - Predicted age does respond to acquisition appearance, by 3–4 yrs for intensity-distribution swaps, mostly towards HH's appearance (9b).
+    - Yet the two most obvious acquisition explanations for the IOP offset are ruled out at IOP's measured levels: global intensity distribution (≤ ~1 yr, 9b) and Gaussian smoothness (0 or opposite sign, 9d).
+    - The IOP offset therefore comes from acquisition properties not tested here (e.g. the spatial pattern of tissue contrast, scanner-specific reconstruction or distortion), from cohort differences, or from both. IXI cannot separate these.
+- **Phase 9e (feature harmonisation): done (2026-10-14).** `scripts/12_harmonise_features.py`, results in `results/phase9e_harmonisation/` (also on Drive). It takes about 1 min: it uses the cached Phase 9a features and needs no model run.
+  - Method:
+    - The 64-d pooled features were harmonised with ComBat (location/scale, no empirical Bayes), preserving age, age² and sex. Site parameters came from train subjects only.
+    - Age was re-predicted through the model's own, unchanged age head; re-applying the head to the original features reproduces the model's predictions exactly.
+    - Bias correction was refitted on val for each version. Held-out subjects (val + test, n = 146); bootstrap CIs.
+  - Results, original → harmonised:
+    - Site probe (age/sex removed): **91.2% → 36.3%** (chance 33%). The fingerprint is removed.
+    - MAE: 3.81 → 3.90 held-out, 3.71 → 3.79 test-only; r 0.965 → 0.962. Accuracy is essentially unchanged.
+    - Corrected BAG, IOP vs Guys: **−4.53 [−7.04, −2.01] → −3.95 [−6.40, −1.37]**, so the offset largely persists. HH vs Guys: −0.69 → −1.02. Male vs female: −1.28 → −1.48 (both CIs include 0).
+  - The offset appears only in subjects the model did not train on. Using the Phase 5 correction, IOP vs Guys BAG (age- and sex-adjusted) is:
+    - train −0.97 [−3.09, +1.15], with train MAE 1.5–2.4, so the model fits its training subjects closely;
+    - val −4.08 [−7.31, −0.85];
+    - test −5.06 [−8.99, −1.13].
+
+    So the offset **replicates independently in val and test**. It is a failure to generalise to new IOP individuals, not something present in the fitted data. ComBat estimated on train therefore has no offset to remove.
+  - Reading: removing the site-identifying shifts from the features costs almost no accuracy and leaves the IOP offset mostly intact. So the offset is not carried by the features' site fingerprint. It lies along the age-relevant feature directions, for unseen IOP subjects. Together with Phases 9b and 9d, the IOP offset is not explained by global intensity, by Gaussian smoothness, or by the linear site signature in the features. Cohort differences or acquisition properties not tested remain possible; IXI cannot separate them.
+  - Note: a first implementation had a sign/intercept error (double-subtracted grand mean) that produced nonsense (MAE 14). It was caught by checking that harmonised features keep their means, and fixed before any result was used.
+- **Phase 9f (predictive uncertainty): done (2026-10-14).** `scripts/13_uncertainty.py`, results in `results/phase9f_uncertainty/` (also on Drive). It took about 10 min on CPU.
+  - Measure: the spread of SFCN's own predicted age distribution (predictive SD), plus whether the true age lies inside its 5th–95th percentile range (90% coverage). Raw predictions; 5,000 bootstrap resamples.
+  - Main model, held-out (n = 146):
+    - Overall coverage is 88%. The spread is wide relative to the error (mean |error|/SD ≈ 0.6–0.7), so the ranges are conservative rather than over-confident.
+    - IOP: predictive SD 8.06 vs Guys 5.66 and HH 6.39; IOP vs Guys, age/sex-adjusted, **+2.48 yrs [+1.30, +3.65]**. IOP coverage is 83% [67, 100]; Guys 87%, HH 91%.
+    - Per subject, uncertainty only weakly tracks error (Spearman +0.16, p = 0.057).
+  - Leave-one-site-out models (same subjects as Phase 6b; re-runs reproduce the saved predictions):
+    - **IOP unseen:** SD 12.46 vs 6.13 for seen sites, **+5.32 yrs [+4.65, +5.99]**. Coverage is 92% [85, 98] despite MAE 6.80. The model is less accurate but says so: it is **not confidently wrong**.
+    - **HH unseen:** SD 9.36 vs 8.70, +0.79 [−0.08, +1.67]; coverage 93%. HH generalises (Phase 6b), and uncertainty barely rises.
+  - Reading: the model's own uncertainty rises at the site where it is least reliable (IOP), most of all when IOP was never seen, and its ranges keep roughly nominal coverage there. At group level it flags the acquisition-site problem. At the individual level the signal is weak, so it is not a per-scan error detector.
+- **Phase 9g (attribution deletion test): done (2026-10-14).** `scripts/14_attribution_deletion_test.py`, results in `results/phase9g_deletion_test/` (also on Drive). It took 21 min on CPU.
+  - Method:
+    - 60 held-out subjects (fixed random sample: Guys 32, HH 18, IOP 10).
+    - Brain cells of the Phase 7 maps (8 mm) were ranked by attribution.
+    - The top, bottom or random 5 / 10 / 20% of brain cells were replaced by a heavily smoothed copy of the image (σ = 8 voxels), so every condition applies the same perturbation and only its location differs. Random removal used two draws.
+    - Outcome: |change in predicted age|.
+  - Results, |change| in yrs (top / random / bottom):
+    - 5%: **4.83 / 1.04 / 0.46**
+    - 10%: 6.05 / 1.89 / 0.70
+    - 20%: 8.71 / 4.17 / 1.21
+  - Top minus random: +3.79 [+3.03, +4.66] at 5%, Wilcoxon p = 5e-11, larger for 93% of subjects. At 10% and 20%: +4.16 and +4.54, p ≤ 3e-9.
+  - Random minus bottom is also positive at every fraction (p ≤ 5e-10).
+  - Reading: the maps pass the deletion test. The regions they rank highest matter most to the prediction and the lowest-ranked matter least. Together with the randomisation sanity check (Phase 7), the attribution maps are faithful to the model at their 8 mm resolution.
+- **Phase 9h (website): built (2026-10-14).** `scripts/15_build_demo.py` writes `demo/index.html`, a self-contained offline page with story chapters, interactive charts and a brain explorer. All numbers are read from the saved results.
+- **Phase 8 (report): draft written (2026-10-14)**, `report/report_draft.md`. Still to do: team contributions, and the team's review and edits.
 
 ## Data location
 
