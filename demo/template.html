@@ -1,0 +1,558 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Right for the Wrong Reasons?</title>
+<meta name="description" content="An audit of a brain-age deep learning model on the IXI MRI dataset: accuracy, fairness across sex and acquisition site, and whether it is right for the right reasons.">
+<style>
+:root {
+  color-scheme: light;
+  --page: #f9f9f7; --surface: #fcfcfb; --raise: #ffffff;
+  --ink: #0b0b0b; --ink-2: #52514e; --muted: #898781;
+  --grid: #e1e0d9; --axis: #c3c2b7; --ring: rgba(11,11,11,0.10);
+  --guys: #2a78d6; --hh: #eb6834; --iop: #1baf7a;
+  --accent: #2a78d6; --accent-wash: rgba(42,120,214,0.10);
+  --neg: #2a78d6; --pos: #e34948; --mid: #f0efec;
+  --good: #0ca30c; --serious: #ec835a;
+  --scan: #050505;
+  --r: 14px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:where(:not([data-theme="light"])) {
+    color-scheme: dark;
+    --page: #0d0d0d; --surface: #1a1a19; --raise: #1f1f1e;
+    --ink: #f0efec; --ink-2: #c3c2b7; --muted: #898781;
+    --grid: #2c2c2a; --axis: #383835; --ring: rgba(255,255,255,0.10);
+    --guys: #3987e5; --hh: #d95926; --iop: #199e70;
+    --accent: #3987e5; --accent-wash: rgba(57,135,229,0.14);
+    --neg: #3987e5; --pos: #e66767; --mid: #383835;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --page: #0d0d0d; --surface: #1a1a19; --raise: #1f1f1e;
+  --ink: #f0efec; --ink-2: #c3c2b7; --muted: #898781;
+  --grid: #2c2c2a; --axis: #383835; --ring: rgba(255,255,255,0.10);
+  --guys: #3987e5; --hh: #d95926; --iop: #199e70;
+  --accent: #3987e5; --accent-wash: rgba(57,135,229,0.14);
+  --neg: #3987e5; --pos: #e66767; --mid: #383835;
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } *, *::before, *::after { animation: none !important; transition: none !important; } }
+body { margin: 0; background: var(--page); color: var(--ink); font: 16px/1.6 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; -webkit-font-smoothing: antialiased; }
+a { color: var(--accent); }
+.wrap { max-width: 1120px; margin: 0 auto; padding: 0 16px; }
+
+/* ---------- top bar ---------- */
+.bar { position: sticky; top: 0; z-index: 20; background: color-mix(in srgb, var(--page) 86%, transparent); backdrop-filter: blur(10px); border-bottom: 1px solid var(--ring); }
+.bar .wrap { display: flex; align-items: center; gap: 14px; height: 52px; }
+.brand { font-weight: 650; font-size: .95rem; white-space: nowrap; }
+.nav { display: flex; gap: 2px; overflow-x: auto; scrollbar-width: none; flex: 1; }
+.nav::-webkit-scrollbar { display: none; }
+.nav a { color: var(--ink-2); text-decoration: none; font-size: .86rem; padding: 6px 10px; border-radius: 999px; white-space: nowrap; }
+.nav a.on { background: var(--accent-wash); color: var(--ink); }
+.iconbtn { border: 1px solid var(--ring); background: var(--surface); color: var(--ink); border-radius: 999px; width: 34px; height: 34px; cursor: pointer; font-size: 15px; flex: none; }
+@media (max-width: 640px) { .brand { display: none; } }
+
+/* ---------- hero ---------- */
+.hero { padding: 64px 0 40px; display: grid; grid-template-columns: 1.15fr 1fr; gap: 40px; align-items: center; }
+@media (max-width: 860px) { .hero { grid-template-columns: 1fr; padding-top: 36px; gap: 28px; } }
+.kicker { text-transform: uppercase; letter-spacing: .12em; font-size: .78rem; color: var(--muted); margin: 0 0 12px; }
+.hero h1 { font-size: clamp(2.2rem, 5.4vw, 3.8rem); line-height: 1.03; letter-spacing: -.025em; margin: 0 0 18px; font-weight: 700; }
+.hero h1 em { font-style: normal; color: var(--muted); }
+.lede { font-size: 1.12rem; color: var(--ink-2); max-width: 560px; margin: 0 0 26px; }
+.verdict { display: inline-flex; gap: 12px; align-items: center; background: var(--surface); border: 1px solid var(--ring); border-radius: var(--r); padding: 12px 16px; }
+.verdict b { font-size: 1.5rem; }
+.verdict span { color: var(--ink-2); font-size: .92rem; max-width: 330px; }
+.brainstage { position: relative; aspect-ratio: 1; max-width: 440px; width: 100%; justify-self: center; border-radius: 28px; overflow: hidden; background: var(--scan); box-shadow: 0 30px 80px -30px rgba(0,0,0,.45); }
+.brainstage img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
+.brainstage .cam { animation: breathe 4.5s ease-in-out infinite; }
+@keyframes breathe { 0%, 100% { opacity: .25; } 50% { opacity: .95; } }
+.brainstage .scanline { position: absolute; left: 0; right: 0; height: 2px; background: linear-gradient(90deg, transparent, rgba(255,255,255,.55), transparent); animation: scan 6s linear infinite; }
+@keyframes scan { from { top: 8%; } to { top: 92%; } }
+.brainstage .tag { position: absolute; left: 14px; bottom: 12px; right: 14px; display: flex; justify-content: space-between; color: #d7dbe0; font-size: .78rem; }
+.brainstage .tag b { color: #fff; font-size: 1rem; }
+
+/* ---------- headline stats ---------- */
+.stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin: 8px 0 28px; }
+@media (max-width: 860px) { .stats { grid-template-columns: repeat(2, 1fr); } }
+.stat { background: var(--surface); border: 1px solid var(--ring); border-radius: var(--r); padding: 16px; }
+.stat .label { color: var(--ink-2); font-size: .84rem; }
+.stat .value { font-size: 1.9rem; font-weight: 650; line-height: 1.15; margin: 4px 0 2px; }
+.stat .foot { color: var(--muted); font-size: .8rem; }
+
+/* ---------- chapters ---------- */
+section.ch { padding: 56px 0 24px; border-top: 1px solid var(--ring); }
+.chhead { display: grid; grid-template-columns: 70px 1fr; gap: 6px 18px; margin-bottom: 22px; }
+.chnum { font-size: 2.6rem; font-weight: 700; color: var(--axis); line-height: 1; grid-row: span 2; }
+.chhead h2 { font-size: clamp(1.5rem, 3vw, 2.1rem); margin: 0; letter-spacing: -.015em; line-height: 1.15; }
+.chhead p { margin: 0; color: var(--ink-2); max-width: 720px; }
+@media (max-width: 560px) { .chhead { grid-template-columns: 1fr; } .chnum { grid-row: auto; font-size: 1.6rem; } }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+@media (max-width: 860px) { .grid2, .grid3 { grid-template-columns: 1fr; } }
+.card { background: var(--surface); border: 1px solid var(--ring); border-radius: var(--r); padding: 18px; min-width: 0; }
+.card h3 { font-size: 1rem; margin: 0 0 2px; }
+.card .sub { color: var(--muted); font-size: .84rem; margin: 0 0 12px; }
+.card p { color: var(--ink-2); font-size: .94rem; margin: 10px 0 0; }
+.callout { border-left: 3px solid var(--accent); padding: 4px 0 4px 14px; color: var(--ink-2); margin: 18px 0 0; max-width: 820px; }
+.callout b { color: var(--ink); }
+.chart { width: 100%; }
+.chart svg { display: block; width: 100%; height: auto; overflow: visible; }
+.legend { display: flex; flex-wrap: wrap; gap: 14px; font-size: .82rem; color: var(--ink-2); margin: 0 0 8px; }
+.legend i { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; vertical-align: -1px; }
+.legend i.line { width: 14px; height: 2px; border-radius: 1px; vertical-align: 3px; }
+details.tbl { margin-top: 10px; font-size: .82rem; color: var(--ink-2); }
+details.tbl summary { cursor: pointer; color: var(--muted); }
+details.tbl table { border-collapse: collapse; margin-top: 6px; width: 100%; }
+details.tbl td, details.tbl th { border-bottom: 1px solid var(--grid); padding: 4px 6px; text-align: left; font-variant-numeric: tabular-nums; }
+.ruled { display: flex; flex-direction: column; gap: 10px; }
+.ruled .big { font-size: 1.6rem; font-weight: 650; }
+.pill { display: inline-flex; align-items: center; gap: 6px; font-size: .78rem; padding: 3px 9px; border-radius: 999px; border: 1px solid var(--ring); color: var(--ink-2); }
+.pill.no::before { content: "✕"; color: var(--pos); font-weight: 700; }
+.pill.yes::before { content: "✓"; color: var(--good); font-weight: 700; }
+.seg { display: inline-flex; border: 1px solid var(--ring); border-radius: 999px; padding: 3px; gap: 2px; background: var(--page); }
+.seg button { border: 0; background: transparent; color: var(--ink-2); font: inherit; font-size: .84rem; padding: 5px 12px; border-radius: 999px; cursor: pointer; }
+.seg button[aria-pressed="true"] { background: var(--surface); color: var(--ink); box-shadow: 0 0 0 1px var(--ring); }
+
+/* ---------- tooltip ---------- */
+.tip { position: fixed; z-index: 50; pointer-events: none; background: var(--raise); color: var(--ink); border: 1px solid var(--ring); border-radius: 10px; padding: 8px 10px; font-size: .8rem; box-shadow: 0 8px 24px rgba(0,0,0,.18); opacity: 0; transition: opacity .1s; max-width: 240px; }
+.tip.on { opacity: 1; }
+.tip b { display: block; margin-bottom: 2px; }
+.tip .k { color: var(--muted); }
+
+/* ---------- explorer ---------- */
+.explorer { display: grid; grid-template-columns: 250px 1fr; gap: 16px; align-items: start; }
+@media (max-width: 860px) { .explorer { grid-template-columns: 1fr; } }
+.filters { display: flex; gap: 6px; margin-bottom: 10px; flex-wrap: wrap; }
+.chip { border: 1px solid var(--ring); background: transparent; color: var(--ink-2); border-radius: 999px; padding: 4px 11px; font: inherit; font-size: .84rem; cursor: pointer; }
+.chip[aria-pressed="true"] { background: var(--accent-wash); color: var(--ink); border-color: var(--accent); }
+.subjects { display: flex; flex-direction: column; gap: 2px; max-height: 640px; overflow-y: auto; }
+@media (max-width: 860px) { .subjects { flex-direction: row; overflow-x: auto; max-height: none; padding-bottom: 6px; } }
+.subj { display: flex; align-items: center; gap: 8px; border: 1px solid transparent; background: transparent; color: var(--ink); padding: 7px 9px; border-radius: 9px; font: inherit; font-size: .86rem; cursor: pointer; white-space: nowrap; text-align: left; }
+.subj:hover { background: var(--accent-wash); }
+.subj[aria-current="true"] { border-color: var(--accent); background: var(--accent-wash); }
+.subj .meta { margin-left: auto; color: var(--muted); font-variant-numeric: tabular-nums; padding-left: 10px; }
+.dot { width: 9px; height: 9px; border-radius: 50%; flex: none; }
+.views { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+@media (max-width: 560px) { .views { grid-template-columns: 1fr; } }
+.view { position: relative; aspect-ratio: 1; background: var(--scan); border-radius: 12px; overflow: hidden; }
+.view img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
+.view .cam { transition: opacity .2s; }
+.view label { position: absolute; left: 9px; bottom: 6px; color: #cfd6df; font-size: .72rem; }
+.controls { display: flex; flex-wrap: wrap; gap: 16px; align-items: center; color: var(--ink-2); font-size: .86rem; margin-top: 10px; }
+.controls input[type=range] { accent-color: var(--accent); width: 150px; }
+.kv { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 14px; }
+@media (max-width: 640px) { .kv { grid-template-columns: repeat(2, 1fr); } }
+.kv div { border: 1px solid var(--ring); border-radius: 11px; padding: 10px 12px; }
+.kv span { display: block; color: var(--muted); font-size: .78rem; }
+.kv b { font-size: 1.35rem; }
+.looks { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.look { border: 1px solid var(--ring); border-radius: 12px; padding: 12px; background: transparent; color: var(--ink); font: inherit; text-align: left; cursor: pointer; }
+.look:hover { background: var(--accent-wash); }
+.look[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-wash); }
+.look span { display: block; color: var(--muted); font-size: .78rem; }
+.look b { font-size: 1.3rem; }
+.meter { height: 8px; border-radius: 4px; background: var(--accent-wash); overflow: hidden; margin-top: 8px; }
+.meter > div { height: 100%; background: var(--iop); border-radius: 4px; transition: width .4s; }
+
+/* ---------- reveal ---------- */
+.reveal { opacity: 0; transform: translateY(14px); transition: opacity .6s ease, transform .6s ease; }
+.reveal.in { opacity: 1; transform: none; }
+
+footer { border-top: 1px solid var(--ring); margin-top: 48px; padding: 28px 0 56px; color: var(--muted); font-size: .84rem; }
+footer p { margin: 6px 0; max-width: 860px; }
+</style>
+</head>
+<body>
+<div class="bar"><div class="wrap">
+  <div class="brand">Right for the Wrong Reasons?</div>
+  <nav class="nav" id="nav">
+    <a href="#accuracy">Accuracy</a><a href="#fairness">Fairness</a><a href="#unseen">Unseen sites</a>
+    <a href="#reasons">Wrong reasons?</a><a href="#notit">What it isn't</a><a href="#unsure">Uncertainty</a>
+    <a href="#maps">Heatmaps</a><a href="#explore">Explore a brain</a>
+  </nav>
+  <button class="iconbtn" id="theme" type="button" aria-label="Toggle light or dark theme">◐</button>
+</div></div>
+
+<div class="wrap">
+  <header class="hero">
+    <div>
+      <p class="kicker">Brain-age model audit · IXI MRI · 485 adults · 3 London sites</p>
+      <h1>Right for the wrong reasons? <em>Auditing a brain-age model beyond accuracy.</em></h1>
+      <p class="lede">A deep network that reads a person's age from a brain MRI is accurate to within four years. We asked whether it is accurate <b>for everyone</b>, and whether it is accurate <b>for the right reasons</b>.</p>
+      <div class="verdict"><b>Partly.</b><span>Accurate, and fair across sex. But it recognises the scanner, and its answer moves when only the scan's look changes.</span></div>
+    </div>
+    <div class="brainstage" id="heroBrain" aria-label="Animated MRI slice with the model's attribution map">
+      <div class="scanline"></div>
+      <div class="tag"><span>attribution · axial slice</span><span id="heroTag"></span></div>
+    </div>
+  </header>
+
+  <div class="stats reveal">
+    <div class="stat"><div class="label">Test error</div><div class="value" data-count="3.71" data-dec="2">0</div><div class="foot">years, mean absolute error; r = 0.966</div></div>
+    <div class="stat"><div class="label">Sex difference</div><div class="value">None</div><div class="foot">in brain-age gap, error or attribution</div></div>
+    <div class="stat"><div class="label">IOP brain-age gap</div><div class="value" data-count="-5.1" data-dec="1">0</div><div class="foot">years vs Guys, age-adjusted (test)</div></div>
+    <div class="stat"><div class="label">Scanner read from features</div><div class="value" data-count="91" data-dec="0" data-suffix="%">0</div><div class="foot">balanced accuracy; chance is 33%</div></div>
+  </div>
+
+  <!-- 1 -->
+  <section class="ch" id="accuracy">
+    <div class="chhead reveal"><div class="chnum">01</div><h2>Fine-tuning turns a good model into an accurate one</h2>
+      <p>The UK Biobank model can only output ages 42–82, so every young adult is predicted to be about 55. Re-training its last layer for ages 18–90 and fine-tuning the network cuts the error by more than half.</p></div>
+    <div class="grid2">
+      <div class="card reveal"><h3>Predicted vs real age</h3><p class="sub">Held-out brains (validation + test), fine-tuned model. Hover a dot.</p>
+        <div class="legend" id="lgScatter"></div><div class="chart" id="scatter"></div></div>
+      <div class="card reveal"><h3>Error before and after fine-tuning</h3><p class="sub">Mean absolute error in years (validation, n = 73)</p>
+        <div class="chart" id="accBars"></div>
+        <p>The test set was used <b>once</b>, at the very end: MAE <b id="tMae"></b> years, r <b id="tR"></b>.</p></div>
+    </div>
+  </section>
+
+  <!-- 2 -->
+  <section class="ch" id="fairness">
+    <div class="chhead reveal"><div class="chnum">02</div><h2>Fair across sex. One site stands apart.</h2>
+      <p>The brain-age gap is predicted minus real age, corrected for the model's pull towards the mean. Positive means the brain "looks older". Men and women look the same. Brains from IOP look about five years younger.</p></div>
+    <div class="grid2">
+      <div class="card reveal"><h3>Brain-age gap of every held-out brain</h3><p class="sub">Each dot is one person; the bar is the group mean.</p>
+        <div class="seg" id="stripSeg" style="margin-bottom:8px"><button aria-pressed="true" data-g="site">By site</button><button aria-pressed="false" data-g="sex">By sex</button></div>
+        <div class="chart" id="strip"></div></div>
+      <div class="card reveal"><h3>Age-adjusted differences (test set)</h3><p class="sub">Estimate and 95% bootstrap interval. An interval crossing 0 means no detectable difference.</p>
+        <div class="chart" id="fairForest"></div>
+        <p>The IOP offset replicates: it appears in the validation set (−4.1) and the test set (−5.1), but not in the brains the model trained on (−1.0).</p></div>
+    </div>
+  </section>
+
+  <!-- 3 -->
+  <section class="ch" id="unseen">
+    <div class="chhead reveal"><div class="chnum">03</div><h2>A model that never saw IOP stumbles there</h2>
+      <p>We trained three extra models, each with one site left out, and tested them on the site they never saw. HH is easy to generalise to. IOP is not.</p></div>
+    <div class="grid2">
+      <div class="card reveal"><h3>Extra error on the unseen site</h3><p class="sub">Absolute error, unseen site minus seen sites, age-adjusted (years)</p><div class="chart" id="losoErr"></div></div>
+      <div class="card reveal"><h3>Error when a site is unseen</h3><p class="sub">MAE (years) on the unseen site vs on sites it trained on</p><div class="legend" id="lgLoso"></div><div class="chart" id="losoBars"></div></div>
+    </div>
+  </section>
+
+  <!-- 4 -->
+  <section class="ch" id="reasons">
+    <div class="chhead reveal"><div class="chnum">04</div><h2>The model was only taught age. It learned the scanner too.</h2>
+      <p>Inside the network, every brain becomes 64 numbers before the age is read out. A simple classifier can tell which hospital a scan came from using those numbers alone, even after age and sex are removed. And when we change <b>only the look</b> of a scan to another hospital's, the predicted age moves.</p></div>
+    <div class="grid2">
+      <div class="card reveal"><h3>Can the hospital be read from the model's features?</h3><p class="sub">Balanced accuracy on held-out brains; dashed line = guessing (33%)</p><div class="chart" id="probe"></div></div>
+      <div class="card reveal"><h3>Same brain, different scanner look</h3><p class="sub">Change in predicted age (years) when each site's brains are given another site's intensity profile. Hover a cell.</p>
+        <div class="chart" id="swap"></div>
+        <p>HH brains given IOP's look: <b>45 of 45</b> become younger. IOP brains given HH's look: <b>18 of 18</b> become older.</p></div>
+    </div>
+    <p class="callout reveal"><b>What this shows:</b> the prediction is not invariant to acquisition. The same anatomy can receive a different brain age depending on how it was scanned. This is the "wrong reasons" half of the title.</p>
+  </section>
+
+  <!-- 5 -->
+  <section class="ch" id="notit">
+    <div class="chhead reveal"><div class="chnum">05</div><h2>But IOP's five years are not a simple scanner artefact</h2>
+      <p>We tested the three most obvious acquisition explanations at IOP's measured levels. None of them reproduces the offset.</p></div>
+    <div class="grid3" id="ruled"></div>
+    <p class="callout reveal"><b>Why the age adjustment mattered:</b> IOP recruited younger volunteers (mean 41 vs 48). Without standardising each site's "typical look" for age, IOP's look seemed to make brains younger (<span id="unadj"></span> years). Once adjusted, the effect almost vanished (<span id="adj"></span>). What remains possible is either acquisition properties not tested here or genuine cohort differences, and IXI cannot separate the two.</p>
+  </section>
+
+  <!-- 6 -->
+  <section class="ch" id="unsure">
+    <div class="chhead reveal"><div class="chnum">06</div><h2>It knows when it is unsure</h2>
+      <p>The model outputs a probability for every age, so it also says how certain it is. Its uncertainty is highest for IOP, and it doubles when IOP was never seen, while its 90% range still contains the true age about 9 times in 10. Less accurate, but not confidently wrong.</p></div>
+    <div class="grid2">
+      <div class="card reveal"><h3>How unsure the model says it is</h3><p class="sub">Mean spread of the predicted age distribution (SD, years)</p><div class="chart" id="uncBars"></div></div>
+      <div class="card reveal"><h3>Does its 90% range hold?</h3><p class="sub">Share of brains whose real age falls inside the model's own 90% range</p><div class="chart" id="covBars"></div>
+        <p>For single brains, uncertainty only weakly predicts error (ρ = <span id="rho"></span>). It is a warning signal for groups, not an alarm for individual scans.</p></div>
+    </div>
+  </section>
+
+  <!-- 7 -->
+  <section class="ch" id="maps">
+    <div class="chhead reveal"><div class="chnum">07</div><h2>The heatmaps can be trusted</h2>
+      <p>Attribution concentrates on the deep grey matter around the ventricles, which is known to change with age. Two checks: scrambling the model's layers destroys the maps (correlation <span id="sanity"></span>), and smoothing away the regions the heatmap ranks highest changes the prediction far more than smoothing random regions.</p></div>
+    <div class="grid2">
+      <div class="card reveal"><h3>Deletion test</h3><p class="sub">Change in predicted age when part of the brain is smoothed away (60 held-out brains)</p><div class="legend" id="lgDel"></div><div class="chart" id="deletion"></div></div>
+      <div class="card reveal"><h3>Where the model looks, by site</h3><p class="sub">Mean share of attribution per brain region (%), held-out brains. Hover a bar.</p><div class="legend" id="lgAttr"></div><div class="chart" id="attrBars"></div><p>Attribution patterns differ between sites, not between sexes, consistent with the scanner fingerprint.</p></div>
+    </div>
+  </section>
+
+  <!-- 8 -->
+  <section class="ch" id="explore">
+    <div class="chhead reveal"><div class="chnum">08</div><h2>Explore a brain</h2>
+      <p>Pick any held-out brain. See its scan with the attribution overlay, its real and predicted age, how unsure the model is, and what happens to the predicted age when only its look is changed.</p></div>
+    <div class="explorer reveal">
+      <div class="card"><div class="filters" id="filters"></div><div class="subjects" id="subjects"></div></div>
+      <div style="display:flex;flex-direction:column;gap:16px;min-width:0">
+        <div class="card">
+          <h3 id="xTitle"></h3><p class="sub" id="xSub"></p>
+          <div class="views" id="views"></div>
+          <div class="controls"><label><input type="checkbox" id="showCam" checked> Attribution overlay</label><label>Opacity <input type="range" id="opacity" min="0" max="100" value="80"></label></div>
+          <div class="kv" id="kv"></div>
+          <div class="chart" id="range" style="margin-top:12px"></div>
+        </div>
+        <div class="card"><h3>Change only the scanner look</h3><p class="sub">Same anatomy, intensity profile matched to each site's age/sex-standardised typical scan</p><div class="looks" id="looks"></div><p id="lookNote"></p></div>
+        <div class="card"><h3>Scanner fingerprint</h3><p class="sub">Probability this scan is from IOP, read from the model's 64 internal features (age and sex removed)</p><div style="font-size:1.6rem;font-weight:650" id="pIop"></div><div class="meter"><div id="pIopBar"></div></div></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="ch" id="verdict">
+    <div class="chhead reveal"><div class="chnum">✓</div><h2>The verdict</h2>
+      <p>Auditing beyond accuracy changed the answer to "is this a good model?"</p></div>
+    <div class="grid3">
+      <div class="card reveal ruled"><span class="pill yes">Holds up</span><h3>Accurate and fair across sex</h3><p style="margin:0">3.7-year error on unseen brains; no sex difference in gap, error or attribution; faithful heatmaps; uncertainty that rises where it should.</p></div>
+      <div class="card reveal ruled"><span class="pill no">Caution</span><h3>Not acquisition-invariant</h3><p style="margin:0">It encodes the scanner and its answer shifts with scan appearance alone. Brain-age gaps from it should not be compared across sites without site-aware validation.</p></div>
+      <div class="card reveal ruled"><span class="pill">Open question</span><h3>Why IOP?</h3><p style="margin:0">A robust five-year offset that intensity, blur and the feature fingerprint do not explain. Separating scanner from cohort needs travelling-subject data.</p></div>
+    </div>
+  </section>
+
+  <footer>
+    <p><b>Right for the Wrong Reasons? Auditing Brain-Age Model Fairness Beyond Accuracy.</b> Fine-tuned SFCN (Peng et al. 2021) on the IXI dataset (CC BY-SA 3.0); comparison model DeepBrainNet (Bashyam et al. 2020). Statistics: age-adjusted regressions with robust (HC3) errors and bootstrap intervals; the test set was evaluated once.</p>
+    <p>Site differences are acquisition-site effects in a descriptive sense: in IXI, site is confounded with who each site recruited. Attribution maps show where the prediction is sensitive, not what the model "thinks". This is a methods audit on healthy volunteers and makes no clinical claims.</p>
+  </footer>
+</div>
+
+<div class="tip" id="tip" role="status"></div>
+
+<script>
+const DATA = /*__DATA__*/null;
+const S = DATA.stats, PTS = DATA.points, SUBJ = DATA.subjects;
+const SITES = ["Guys", "HH", "IOP"], COL = { Guys: "var(--guys)", HH: "var(--hh)", IOP: "var(--iop)" };
+const NS = "http://www.w3.org/2000/svg";
+const $ = id => document.getElementById(id);
+const sgn = (x, d = 1) => (x > 0 ? "+" : x < 0 ? "−" : "") + Math.abs(x).toFixed(d);
+
+/* ---------- tooltip ---------- */
+const tip = $("tip");
+function showTip(e, html) { tip.innerHTML = html; tip.classList.add("on"); moveTip(e); }
+function moveTip(e) { const w = tip.offsetWidth, h = tip.offsetHeight; let x = e.clientX + 14, y = e.clientY + 14;
+  if (x + w > innerWidth - 8) x = e.clientX - w - 14; if (y + h > innerHeight - 8) y = e.clientY - h - 14; tip.style.left = x + "px"; tip.style.top = y + "px"; }
+function hideTip() { tip.classList.remove("on"); }
+function hover(node, html) { node.addEventListener("pointerenter", e => showTip(e, html)); node.addEventListener("pointermove", moveTip); node.addEventListener("pointerleave", hideTip); }
+
+/* ---------- svg helpers ---------- */
+function el(tag, attrs = {}, parent) { const n = document.createElementNS(NS, tag); for (const k in attrs) n.setAttribute(k, attrs[k]); if (parent) parent.appendChild(n); return n; }
+function svgIn(host, W, H) { host.innerHTML = ""; return el("svg", { viewBox: `0 0 ${W} ${H}`, role: "img" }, host); }
+function txt(parent, x, y, s, attrs = {}) { const t = el("text", { x, y, fill: "var(--muted)", "font-size": 11, ...attrs }, parent); t.textContent = s; return t; }
+const lin = (d0, d1, r0, r1) => v => r0 + (v - d0) / (d1 - d0) * (r1 - r0);
+function table(host, head, rows) { const d = document.createElement("details"); d.className = "tbl"; d.innerHTML = `<summary>Show data table</summary><table><tr>${head.map(h => `<th>${h}</th>`).join("")}</tr>${rows.map(r => `<tr>${r.map(c => `<td>${c}</td>`).join("")}</tr>`).join("")}</table>`; host.appendChild(d); }
+function legend(host, items) { host.innerHTML = items.map(([c, l, line]) => `<span><i class="${line ? "line" : ""}" style="background:${c}"></i>${l}</span>`).join(""); }
+
+/* horizontal forest plot: rows [{label, est, lo, hi, hl}] */
+function forest(host, rows, { unit = "yrs", domain } = {}) {
+  const W = 520, rowH = 44, top = 10, H = top + rows.length * rowH + 30, L = 130, R = W - 16;
+  const all = rows.flatMap(r => [r.lo, r.hi, 0]); const d0 = domain ? domain[0] : Math.floor(Math.min(...all) - .5), d1 = domain ? domain[1] : Math.ceil(Math.max(...all) + .5);
+  const x = lin(d0, d1, L, R), svg = svgIn(host, W, H);
+  for (let t = Math.ceil(d0); t <= d1; t += (d1 - d0 > 10 ? 2 : 1)) { el("line", { x1: x(t), x2: x(t), y1: top, y2: H - 26, stroke: "var(--grid)" }, svg); txt(svg, x(t), H - 10, t, { "text-anchor": "middle" }); }
+  el("line", { x1: x(0), x2: x(0), y1: top, y2: H - 26, stroke: "var(--axis)", "stroke-width": 1.5 }, svg);
+  rows.forEach((r, i) => { const y = top + i * rowH + rowH / 2, c = r.hl ? "var(--pos)" : "var(--ink-2)";
+    txt(svg, L - 10, y + 4, r.label, { "text-anchor": "end", fill: "var(--ink)", "font-size": 12 });
+    el("line", { x1: x(r.lo), x2: x(r.hi), y1: y, y2: y, stroke: c, "stroke-width": 2, "stroke-linecap": "round" }, svg);
+    const dot = el("circle", { cx: x(r.est), cy: y, r: 6, fill: c, stroke: "var(--surface)", "stroke-width": 2 }, svg);
+    const hit = el("rect", { x: L, y: y - rowH / 2, width: R - L, height: rowH, fill: "transparent" }, svg);
+    hover(hit, `<b>${r.label}</b>${sgn(r.est, 2)} ${unit}<br><span class="k">95% CI</span> ${sgn(r.lo, 2)} to ${sgn(r.hi, 2)}`); });
+  table(host, ["Comparison", "Estimate", "95% CI"], rows.map(r => [r.label, sgn(r.est, 2), `${sgn(r.lo, 2)} to ${sgn(r.hi, 2)}`]));
+}
+
+/* horizontal bars: items [{label, value, color, lo, hi, note}] */
+function hbars(host, items, { max, unit = "", ref, refLabel, dec = 1 } = {}) {
+  const W = 520, rowH = 40, top = 6, H = top + items.length * rowH + 26, L = 150, R = W - 50;
+  const m = max || Math.max(...items.map(i => i.hi ?? i.value)) * 1.1, x = lin(0, m, L, R), svg = svgIn(host, W, H);
+  if (ref != null) { el("line", { x1: x(ref), x2: x(ref), y1: top, y2: H - 22, stroke: "var(--axis)", "stroke-dasharray": "0", "stroke-width": 1.5 }, svg); txt(svg, x(ref) + 4, H - 8, refLabel || ref); }
+  el("line", { x1: L, x2: L, y1: top, y2: H - 22, stroke: "var(--axis)" }, svg);
+  items.forEach((it, i) => { const y = top + i * rowH + (rowH - 18) / 2, w = Math.max(2, x(it.value) - L);
+    txt(svg, L - 10, y + 13, it.label, { "text-anchor": "end", fill: "var(--ink)", "font-size": 12 });
+    el("path", { d: `M${L},${y}h${w - 4}a4,4 0 0 1 4,4v10a4,4 0 0 1 -4,4h${-(w - 4)}z`, fill: it.color }, svg);
+    if (it.lo != null) el("line", { x1: x(it.lo), x2: x(it.hi), y1: y + 9, y2: y + 9, stroke: "var(--ink)", "stroke-width": 1.5, opacity: .55 }, svg);
+    txt(svg, x(it.hi ?? it.value) + 6, y + 13, it.value.toFixed(dec) + unit, { fill: "var(--ink-2)", "font-size": 12 });
+    const hit = el("rect", { x: L, y: y - 6, width: R - L, height: 30, fill: "transparent" }, svg);
+    hover(hit, `<b>${it.label}</b>${it.value.toFixed(dec)}${unit}${it.lo != null ? `<br><span class="k">95% CI</span> ${it.lo}–${it.hi}${unit}` : ""}${it.note ? `<br>${it.note}` : ""}`); });
+  table(host, ["", "Value"], items.map(i => [i.label, i.value.toFixed(dec) + unit + (i.lo != null ? ` (${i.lo}–${i.hi})` : "")]));
+}
+
+/* ---------- hero ---------- */
+(function hero() {
+  const s = SUBJ.find(d => d.site === "Guys" && d.age > 55) || SUBJ[0], v = s.views.axial;
+  $("heroBrain").insertAdjacentHTML("afterbegin", `<img src="${v.img}" alt=""><img class="cam" src="${v.cam}" alt="">`);
+  $("heroTag").innerHTML = `real <b>${s.age.toFixed(0)}</b> · predicted <b>${s.pred.toFixed(0)}</b>`;
+})();
+
+/* ---------- 01 accuracy ---------- */
+function drawScatter() {
+  const host = $("scatter"), W = 520, H = 400, L = 40, B = 34, T = 8, R = W - 8, d0 = 15, d1 = 92;
+  const x = lin(d0, d1, L, R), y = lin(d0, d1, H - B, T), svg = svgIn(host, W, H);
+  for (let t = 20; t <= 90; t += 10) { el("line", { x1: x(t), x2: x(t), y1: T, y2: H - B, stroke: "var(--grid)" }, svg); el("line", { x1: L, x2: R, y1: y(t), y2: y(t), stroke: "var(--grid)" }, svg);
+    txt(svg, x(t), H - B + 16, t, { "text-anchor": "middle" }); txt(svg, L - 6, y(t) + 4, t, { "text-anchor": "end" }); }
+  el("line", { x1: x(d0), y1: y(d0), x2: x(d1), y2: y(d1), stroke: "var(--axis)", "stroke-width": 1.5 }, svg);
+  txt(svg, (L + R) / 2, H - 2, "Real age (years)", { "text-anchor": "middle" });
+  txt(svg, 12, (T + H - B) / 2, "Predicted age", { transform: `rotate(-90 12 ${(T + H - B) / 2})`, "text-anchor": "middle" });
+  PTS.forEach(p => { const c = el("circle", { cx: x(p.age), cy: y(p.pred), r: 4.5, fill: COL[p.site], stroke: "var(--surface)", "stroke-width": 2 }, svg);
+    hover(c, `<b>${p.id} · ${p.site}</b><span class="k">real</span> ${p.age.toFixed(1)} · <span class="k">predicted</span> ${p.pred.toFixed(1)}<br><span class="k">brain-age gap</span> ${sgn(p.bag)} yrs`); });
+  legend($("lgScatter"), SITES.map(s => [COL[s], s]).concat([["var(--axis)", "perfect prediction", true]]));
+}
+function drawAcc() {
+  const a = S.accuracy;
+  hbars($("accBars"), [
+    { label: "Zero-shot", value: a.zero_shot_mae, color: "var(--axis)", note: `r ${a.zero_shot_r}; ages limited to 42–82` },
+    { label: "Zero-shot + linear fix", value: a.zero_shot_corrected_mae, color: "var(--axis)" },
+    { label: "Fine-tuned", value: a.finetuned_val_mae, color: "var(--accent)", note: `r ${a.finetuned_val_r}` }], { unit: " yrs", dec: 2 });
+  $("tMae").textContent = `${a.test_mae} [${a.test_mae_ci[0]}, ${a.test_mae_ci[1]}]`; $("tR").textContent = a.test_r;
+}
+
+/* ---------- 02 fairness ---------- */
+let stripGroup = "site";
+function drawStrip() {
+  const groups = stripGroup === "site" ? SITES : ["Female", "Male"], key = stripGroup === "site" ? "site" : "sex";
+  const host = $("strip"), W = 520, rowH = 78, T = 8, H = T + groups.length * rowH + 30, L = 70, R = W - 12;
+  const x = lin(-16, 16, L, R), svg = svgIn(host, W, H);
+  for (let t = -15; t <= 15; t += 5) { el("line", { x1: x(t), x2: x(t), y1: T, y2: H - 26, stroke: t === 0 ? "var(--axis)" : "var(--grid)", "stroke-width": t === 0 ? 1.5 : 1 }, svg); txt(svg, x(t), H - 10, sgn(t, 0), { "text-anchor": "middle" }); }
+  txt(svg, R, H - 26 - 4, "looks older →", { "text-anchor": "end" }); txt(svg, L + 2, H - 26 - 4, "← looks younger");
+  let seed = 7; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  groups.forEach((g, i) => { const yc = T + i * rowH + rowH / 2 - 4, pts = PTS.filter(p => p[key] === g), m = pts.reduce((s, p) => s + p.bag, 0) / pts.length;
+    txt(svg, L - 10, yc + 4, g, { "text-anchor": "end", fill: "var(--ink)", "font-size": 12 }); txt(svg, L - 10, yc + 18, `n=${pts.length}`, { "text-anchor": "end" });
+    pts.forEach(p => { const c = el("circle", { cx: x(Math.max(-16, Math.min(16, p.bag))), cy: yc + (rnd() - .5) * 34, r: 4, fill: stripGroup === "site" ? COL[p.site] : "var(--ink-2)", "fill-opacity": .75, stroke: "var(--surface)", "stroke-width": 1.5 }, svg);
+      hover(c, `<b>${p.id} · ${p.site} · ${p.sex}</b><span class="k">age</span> ${p.age.toFixed(0)} · <span class="k">gap</span> ${sgn(p.bag)} yrs`); });
+    el("line", { x1: x(m), x2: x(m), y1: yc - 24, y2: yc + 24, stroke: "var(--ink)", "stroke-width": 3, "stroke-linecap": "round" }, svg);
+    txt(svg, x(m), yc - 28, `mean ${sgn(m)}`, { "text-anchor": "middle", fill: "var(--ink)" }); });
+}
+function drawFairForest() {
+  const f = S.fairness.filter(r => r.outcome === "bag_corrected");
+  forest($("fairForest"), f.map(r => ({ label: r.term, est: r.est, lo: r.lo, hi: r.hi, hl: r.lo > 0 || r.hi < 0 })), { domain: [-10, 5] });
+}
+
+/* ---------- 03 unseen ---------- */
+function drawLoso() {
+  const order = ["IOP", "HH", "Guys"], L = order.map(s => S.loso.find(r => r.site === s));
+  forest($("losoErr"), L.map(r => ({ label: `${r.site} unseen`, est: r.err[0], lo: r.err[1], hi: r.err[2], hl: r.err[1] > 0 })), { domain: [-3, 6] });
+  const host = $("losoBars"), W = 520, H = 230, T = 10, B = 34, Lp = 40, R = W - 10, svg = svgIn(host, W, H), y = lin(0, 8, H - B, T);
+  for (let t = 0; t <= 8; t += 2) { el("line", { x1: Lp, x2: R, y1: y(t), y2: y(t), stroke: "var(--grid)" }, svg); txt(svg, Lp - 6, y(t) + 4, t, { "text-anchor": "end" }); }
+  const band = (R - Lp) / L.length;
+  L.forEach((r, i) => { const cx = Lp + band * i + band / 2;
+    [[r.mae_ref, "var(--axis)", "seen sites"], [r.mae_held, COL[r.site], `${r.site} (unseen)`]].forEach(([v, c, lab], j) => {
+      const x0 = cx - 26 + j * 28, h = y(0) - y(v), b = el("path", { d: `M${x0},${y(0)}v${-(h - 4)}a4,4 0 0 1 4,-4h16a4,4 0 0 1 4,4v${h - 4}z`, fill: c }, svg);
+      txt(svg, x0 + 12, y(v) - 6, v.toFixed(1), { "text-anchor": "middle", fill: "var(--ink-2)" }); hover(b, `<b>Model without ${r.site}</b>${lab}: MAE ${v.toFixed(2)} yrs`); });
+    txt(svg, cx, H - 12, `without ${r.site}`, { "text-anchor": "middle", fill: "var(--ink)" }); });
+  legend($("lgLoso"), [["var(--axis)", "sites it trained on"], ["var(--ink-2)", "the unseen site (site colour)"]]);
+}
+
+/* ---------- 04 reasons ---------- */
+function drawProbe() {
+  const keep = ["demographics", "intensity", "sfcn_pretrained", "sfcn_finetuned_resid"], c = { demographics: "var(--axis)", intensity: "var(--axis)", sfcn_pretrained: "var(--accent)", sfcn_finetuned_resid: "var(--accent)" };
+  hbars($("probe"), keep.map(k => S.probe.find(p => p.key === k)).map(p => ({ label: p.label.replace(", age/sex removed", " (age/sex out)"), value: p.acc, lo: p.lo, hi: p.hi, color: c[p.key] })), { max: 100, unit: "%", ref: 33.3, refLabel: "chance" });
+}
+function drawSwap() {
+  const M = S.swap.matrix, host = $("swap"), W = 520, cell = 112, L = 120, T = 30, H = T + cell * 3 + 10, svg = svgIn(host, W, H), lim = 4.5;
+  SITES.forEach((s, j) => txt(svg, L + j * cell + cell / 2, T - 10, `looks like ${s}`, { "text-anchor": "middle", fill: "var(--ink)", "font-size": 12 }));
+  SITES.forEach((src, i) => { txt(svg, L - 10, T + i * cell + cell / 2 + 4, `${src} brains`, { "text-anchor": "end", fill: "var(--ink)", "font-size": 12 });
+    SITES.forEach((tgt, j) => { const v = M[i][j], own = i === j, t = Math.min(1, Math.abs(v) / lim);
+      const fill = own ? "var(--mid)" : `color-mix(in srgb, ${v < 0 ? "var(--neg)" : "var(--pos)"} ${Math.round(15 + 75 * t)}%, var(--mid))`;
+      const r = el("rect", { x: L + j * cell + 1, y: T + i * cell + 1, width: cell - 2, height: cell - 2, rx: 8, fill }, svg);
+      const dark = !own && t > .55;
+      txt(svg, L + j * cell + cell / 2, T + i * cell + cell / 2 + 2, own ? "own look" : sgn(v), { "text-anchor": "middle", fill: dark ? "#fff" : "var(--ink)", "font-size": own ? 12 : 20, "font-weight": own ? 400 : 650 });
+      if (!own) txt(svg, L + j * cell + cell / 2, T + i * cell + cell / 2 + 22, "years", { "text-anchor": "middle", fill: dark ? "#fff" : "var(--muted)" });
+      hover(r, own ? `<b>${src} brains, own look</b>reference (same procedure)` : `<b>${src} brains → ${tgt} look</b>${sgn(v, 2)} years on average<br><span class="k">n = ${S.swap.n[src]}</span>`); }); });
+  table(host, ["", ...SITES.map(s => `→ ${s}`)], SITES.map((s, i) => [s, ...M[i].map(v => sgn(v, 2))]));
+}
+
+/* ---------- 05 what it isn't ---------- */
+function drawRuled() {
+  const sw = S.swap_iop, h = S.harmonise, b = S.blur;
+  const iopG = sw["IOP -> Guys (vs own-site match)"], gI = sw["Guys -> IOP (vs own-site match)"];
+  const cards = [
+    { t: "IOP's brightness profile", big: `≤ ${Math.max(Math.abs(iopG.adjusted), Math.abs(gI.adjusted)).toFixed(1)} yrs`, p: `Swapping Guys ↔ IOP intensity profiles moves predicted age by ${sgn(gI.adjusted)} / ${sgn(iopG.adjusted)} years, against a 5-year offset.` },
+    { t: "IOP's blurrier images", big: `${sgn(b.Guys.est)} yrs`, p: `IOP scans are ~2 SD smoother at the same resolution. Blurring Guys brains to exactly IOP's level makes them slightly <i>older</i>, not younger (HH: ${sgn(b.HH.est)}).` },
+    { t: "The scanner fingerprint", big: `${sgn(h.original.iop[0])} → ${sgn(h.harmonised.iop[0])}`, p: `Removing the fingerprint from the features (ComBat) drops site recognition from ${h.original.probe}% to ${h.harmonised.probe}% with no loss of accuracy (MAE ${h.original.mae} → ${h.harmonised.mae}), yet the IOP offset stays.` }];
+  $("ruled").innerHTML = cards.map(c => `<div class="card reveal ruled"><span class="pill no">Ruled out</span><h3>${c.t}</h3><div class="big">${c.big}</div><p style="margin:0">${c.p}</p></div>`).join("");
+  $("unadj").textContent = sgn(gI.unadjusted, 2); $("adj").textContent = sgn(gI.adjusted, 2);
+}
+
+/* ---------- 06 uncertainty ---------- */
+function drawUnc() {
+  const u = S.uncertainty, rows = u.main.map(r => ({ label: `${r.site} (main model)`, sd: r.sd, cov: r.cov, color: COL[r.site] }));
+  for (const site of ["HH", "IOP"]) { const g = (u.loso[site] || []).find(x => x.group.includes("unseen")); if (g) rows.push({ label: `${site}, never seen`, sd: g.sd, cov: g.cov, color: COL[site] }); }
+  hbars($("uncBars"), rows.map(r => ({ label: r.label, value: r.sd, color: r.color })), { unit: " yrs" });
+  hbars($("covBars"), rows.map(r => ({ label: r.label, value: r.cov, color: r.color })), { max: 100, unit: "%", ref: 90, refLabel: "target 90%", dec: 0 });
+  $("rho").textContent = u.rho.toFixed(2);
+}
+
+/* ---------- 07 deletion ---------- */
+function drawDeletion() {
+  $("sanity").textContent = S.sanity_rho;
+  const host = $("deletion"), d = S.deletion;
+  if (!d) { host.innerHTML = "<p class='sub'>Deletion results not available.</p>"; return; }
+  const W = 520, H = 300, L = 44, B = 36, T = 12, R = W - 110, xs = d.map(r => r.fraction), m = Math.max(...d.map(r => r.top)) * 1.15;
+  const x = lin(0, Math.max(...xs), L, R), y = lin(0, m, H - B, T), svg = svgIn(host, W, H);
+  for (let t = 0; t <= m; t += 2) { el("line", { x1: L, x2: R, y1: y(t), y2: y(t), stroke: "var(--grid)" }, svg); txt(svg, L - 6, y(t) + 4, t, { "text-anchor": "end" }); }
+  [0, ...xs].forEach(t => txt(svg, x(t), H - B + 16, t + "%", { "text-anchor": "middle" }));
+  txt(svg, (L + R) / 2, H - 4, "Share of the brain smoothed away", { "text-anchor": "middle" });
+  const series = [["top", "var(--pos)", "highest-ranked"], ["random", "var(--muted)", "random"], ["bottom", "var(--accent)", "lowest-ranked"]];
+  series.forEach(([k, c, lab]) => { const pts = [[0, 0], ...d.map(r => [r.fraction, r[k]])];
+    el("path", { d: "M" + pts.map(([a, b]) => `${x(a)},${y(b)}`).join("L"), fill: "none", stroke: c, "stroke-width": 2, "stroke-linejoin": "round", "stroke-linecap": "round" }, svg);
+    d.forEach(r => { const cdot = el("circle", { cx: x(r.fraction), cy: y(r[k]), r: 5, fill: c, stroke: "var(--surface)", "stroke-width": 2 }, svg); hover(cdot, `<b>${lab} regions removed</b>${r.fraction}% of brain: |change| ${r[k].toFixed(2)} yrs`); });
+    const last = d[d.length - 1]; txt(svg, x(last.fraction) + 10, y(last[k]) + 4, lab, { fill: "var(--ink-2)", "font-size": 12 }); });
+  legend($("lgDel"), series.map(([, c, l]) => [c, l, true]));
+  table(host, ["% removed", "highest-ranked", "random", "lowest-ranked"], d.map(r => [r.fraction + "%", r.top.toFixed(2), r.random.toFixed(2), r.bottom.toFixed(2)]));
+}
+
+function drawAttr() {
+  const A = S.attribution, host = $("attrBars"), bh = 8, gap = 2, rowH = 3 * (bh + gap) + 14, T = 4, W = 520, L = 170, R = W - 44;
+  const H = T + A.regions.length * rowH + 20, m = Math.max(...SITES.flatMap(s => A.share[s])) * 1.08, x = lin(0, m, L, R), svg = svgIn(host, W, H);
+  for (let t = 0; t <= m; t += 10) { el("line", { x1: x(t), x2: x(t), y1: T, y2: H - 18, stroke: "var(--grid)" }, svg); txt(svg, x(t), H - 4, t + "%", { "text-anchor": "middle" }); }
+  A.regions.forEach((reg, i) => { const y0 = T + i * rowH + 4;
+    txt(svg, L - 10, y0 + 1.5 * (bh + gap) + 4, reg, { "text-anchor": "end", fill: "var(--ink)", "font-size": 12 });
+    SITES.forEach((s, j) => { const v = A.share[s][i], y = y0 + j * (bh + gap), w = Math.max(2, x(v) - L);
+      const b = el("path", { d: `M${L},${y}h${w - 4}a4,4 0 0 1 4,4v0a4,4 0 0 1 -4,4h${-(w - 4)}z`, fill: COL[s] }, svg);
+      hover(b, `<b>${reg}</b>${s}: ${v.toFixed(1)}% of attribution`); }); });
+  legend($("lgAttr"), SITES.map(s => [COL[s], s]));
+  table(host, ["Region", ...SITES], A.regions.map((r, i) => [r, ...SITES.map(s => A.share[s][i].toFixed(1) + "%")]));
+}
+
+/* ---------- 08 explorer ---------- */
+let filt = "IOP", cur = SUBJ.find(s => s.site === "IOP")?.id || SUBJ[0].id, look = null;
+function drawFilters() { $("filters").innerHTML = ["All", ...SITES].map(s => `<button class="chip" aria-pressed="${s === filt}" data-f="${s}">${s}</button>`).join("");
+  $("filters").querySelectorAll("button").forEach(b => b.onclick = () => { filt = b.dataset.f; drawFilters(); drawList(); }); }
+function drawList() { const rows = SUBJ.filter(d => filt === "All" || d.site === filt);
+  $("subjects").innerHTML = rows.map(d => `<button class="subj" data-id="${d.id}" aria-current="${d.id === cur}"><span class="dot" style="background:${COL[d.site]}"></span>${d.id}<span class="meta">${d.age.toFixed(0)}y · ${sgn(d.bag)}</span></button>`).join("");
+  $("subjects").querySelectorAll("button").forEach(b => b.onclick = () => { cur = b.dataset.id; look = null; drawList(); drawDetail(); }); }
+function drawDetail() {
+  const d = SUBJ.find(s => s.id === cur), op = $("opacity").value / 100, on = $("showCam").checked;
+  $("xTitle").textContent = d.id; $("xSub").innerHTML = `<span class="dot" style="display:inline-block;background:${COL[d.site]};margin-right:6px"></span>${d.site} · ${d.sex} · ${d.split} set`;
+  $("views").innerHTML = ["sagittal", "coronal", "axial"].map(v => `<div class="view"><img src="${d.views[v].img}" alt="${v} MRI slice"><img class="cam" src="${d.views[v].cam}" alt="" style="opacity:${on ? op : 0}"><label>${v}</label></div>`).join("");
+  $("kv").innerHTML = `<div><span>Real age</span><b>${d.age.toFixed(1)}</b></div><div><span>Predicted age</span><b>${d.pred.toFixed(1)}</b></div>
+    <div><span>Brain-age gap (corrected)</span><b>${sgn(d.bag)}</b></div><div><span>Model's uncertainty</span><b>±${d.sd.toFixed(1)}</b></div>`;
+  const host = $("range"), W = 520, H = 58, L = 10, R = W - 10, x = lin(15, 95, L, R), svg = svgIn(host, W, H), c = (v) => x(Math.max(15, Math.min(95, v)));
+  el("line", { x1: L, x2: R, y1: 24, y2: 24, stroke: "var(--grid)", "stroke-width": 2 }, svg);
+  el("rect", { x: c(d.lo), y: 16, width: Math.max(2, c(d.hi) - c(d.lo)), height: 16, rx: 8, fill: "var(--accent-wash)", stroke: "var(--accent)" }, svg);
+  el("line", { x1: c(d.age), x2: c(d.age), y1: 8, y2: 40, stroke: "var(--ink)", "stroke-width": 2 }, svg);
+  el("circle", { cx: c(d.pred), cy: 24, r: 6, fill: "var(--accent)", stroke: "var(--surface)", "stroke-width": 2 }, svg);
+  [20, 40, 60, 80].forEach(t => txt(svg, x(t), 54, t, { "text-anchor": "middle" }));
+  txt(svg, c(d.age), 6, "real", { "text-anchor": "middle", fill: "var(--ink)" });
+  $("looks").innerHTML = SITES.map(s => { const v = d.look[s], own = s === d.site;
+    return `<button class="look" data-s="${s}" aria-pressed="${look === s}"><span>looks like ${s}${own ? " (own)" : ""}</span><b>${own ? "±0.0" : sgn(v)} yrs</b><span>predicted ${(d.pred + (own ? 0 : v)).toFixed(1)}</span></button>`; }).join("");
+  $("looks").querySelectorAll("button").forEach(b => b.onclick = () => { look = b.dataset.s; drawDetail(); });
+  const big = Math.max(...SITES.filter(s => s !== d.site).map(s => Math.abs(d.look[s])));
+  $("lookNote").innerHTML = look && look !== d.site ? `Same brain, only the intensity profile changed: predicted age moves <b>${sgn(d.look[look])} years</b>.` : `For this brain, appearance alone can move the predicted age by up to <b>${big.toFixed(1)} years</b>. Pick a site.`;
+  $("pIop").textContent = `${Math.round(100 * d.p_iop)}%`; $("pIopBar").style.width = `${(100 * d.p_iop).toFixed(1)}%`;
+}
+$("opacity").oninput = $("showCam").onchange = drawDetail;
+
+/* ---------- chrome: theme, nav, reveal, counters ---------- */
+$("theme").onclick = () => { const r = document.documentElement, dark = r.dataset.theme ? r.dataset.theme === "dark" : matchMedia("(prefers-color-scheme: dark)").matches;
+  r.dataset.theme = dark ? "light" : "dark"; try { localStorage.setItem("theme", r.dataset.theme); } catch (e) {} };
+try { const t = localStorage.getItem("theme"); if (t) document.documentElement.dataset.theme = t; } catch (e) {}
+const links = [...document.querySelectorAll("#nav a")];
+const secObs = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) links.forEach(a => a.classList.toggle("on", a.getAttribute("href") === "#" + e.target.id)); }), { rootMargin: "-45% 0px -50% 0px" });
+document.querySelectorAll("section.ch").forEach(s => secObs.observe(s));
+function count(node) { const to = +node.dataset.count, dec = +node.dataset.dec, suf = node.dataset.suffix || "", t0 = performance.now(), dur = 1100;
+  const step = t => { const k = Math.min(1, (t - t0) / dur), e = 1 - Math.pow(1 - k, 3); node.textContent = (to < 0 ? "−" : "") + Math.abs(to * e).toFixed(dec) + suf; if (k < 1) requestAnimationFrame(step); }; requestAnimationFrame(step); }
+const revObs = new IntersectionObserver(es => es.forEach(e => { if (!e.isIntersecting) return; e.target.classList.add("in"); e.target.querySelectorAll("[data-count]").forEach(count); revObs.unobserve(e.target); }), { threshold: .12 });
+
+/* ---------- draw ---------- */
+drawScatter(); drawAcc(); drawStrip(); drawFairForest(); drawLoso(); drawProbe(); drawSwap(); drawRuled(); drawUnc(); drawDeletion(); drawAttr();
+drawFilters(); drawList(); drawDetail();
+$("stripSeg").querySelectorAll("button").forEach(b => b.onclick = () => { stripGroup = b.dataset.g; $("stripSeg").querySelectorAll("button").forEach(x => x.setAttribute("aria-pressed", x === b)); drawStrip(); });
+document.querySelectorAll(".reveal").forEach(n => revObs.observe(n));
+</script>
+</body>
+</html>

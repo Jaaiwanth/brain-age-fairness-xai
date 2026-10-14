@@ -12,8 +12,11 @@ A brain-age model predicts a person's age from a T1-weighted MRI scan. The diffe
 | **Test accuracy** | MAE **3.71 years** [3.10, 4.38], r **0.966** |
 | **Sex** | no detectable difference in brain-age gap, error or attribution |
 | **Acquisition site** | IOP brain-age gap about **5 years lower** than Guys; IOP accuracy drops about **3 years** when unseen in training; attribution patterns differ between sites |
+| **Right for the wrong reasons?** | Partly. The site can be read from the model's features (**91%**, chance 33%), and changing only a scan's intensity appearance moves predicted age by **3–4 years**. Yet the IOP offset is **not** explained by intensity, blur or the feature fingerprint. The model's uncertainty rises at IOP. |
 
 > This is a methods and fairness audit on healthy volunteers. It makes **no clinical claims**.
+
+**Interactive website:** open [`demo/index.html`](demo/index.html) in a browser (it works offline). It walks through the findings chapter by chapter and lets you explore individual brains. **Report draft:** [`report/report_draft.md`](report/report_draft.md).
 
 ## Contents
 
@@ -33,6 +36,7 @@ A brain-age model predicts a person's age from a T1-weighted MRI scan. The diffe
 1. **Accuracy:** how well do pretrained brain-age CNNs predict age on IXI, and what does fine-tuning add over zero-shot use?
 2. **Fairness:** do prediction error or the brain-age gap differ by **sex** or **acquisition site** once age is controlled for? Does the model generalise to a site it never saw?
 3. **Attribution:** where in the brain do the model's attributions fall, and do those patterns differ between groups?
+4. **Right for the wrong reasons?** Does the model's representation encode the acquisition site? Does its prediction respond to acquisition appearance when the anatomy is unchanged? Can intensity, blur or the feature-level site signature explain the IOP offset? Does the model know when it is unsure?
 
 ## Key findings
 
@@ -77,7 +81,60 @@ A randomisation sanity check passes: maps from a model with re-initialised top l
 |---|---|
 | ![Mean attribution map](figures/attribution_mean_map.png) | ![Attribution by site](figures/attribution_by_site.png) |
 
-**Reading across the analyses:** sex shows no effect anywhere. Acquisition site shows up in the brain-age gap, in generalisation and in attribution, with IOP the most distinct site. In IXI, site is confounded with the population each site recruited. The design therefore cannot separate scanner or protocol differences from cohort differences, and none of this is evidence about the people scanned.
+**The maps are faithful.** On 60 held-out brains, smoothing away the 5% of the brain the maps rank highest changes predicted age by **4.8 years**. The same amount of random brain changes it by 1.0 year, and the lowest-ranked 5% by 0.5. Top-ranked removal exceeds random removal in 93% of brains (p = 5e-11), and the same order holds at 10% and 20%.
+
+### 5. The model was only taught age, but it encodes the scanner
+
+A linear probe on the model's 64-d internal features identifies the acquisition site of held-out scans:
+
+| Features used by the probe | Site identified (chance 33%) |
+|---|---|
+| Age and sex only | 41% |
+| Fine-tuned SFCN features | 94% |
+| Fine-tuned SFCN features, age and sex removed | **91%** |
+
+The fingerprint is already present in the pretrained model (93%), and the input intensities alone give 99.6%.
+
+Changing **only** a scan's intensity appearance to another site's, with references standardised for age and sex, moves predicted age by **3–4 years**:
+
+- HH brains given IOP's look: −3.9 years, and all 45 became younger.
+- IOP brains given HH's look: +3.1 years, and all 18 became older.
+
+| Site probe | Same brain, different scanner look |
+|---|---|
+| ![Site probe](figures/site_probe.png) | ![Stress test](figures/stress_test.png) |
+
+### 6. What the IOP offset is not
+
+We tested the obvious acquisition explanations at IOP's measured levels:
+
+| Explanation | Test | Result |
+|---|---|---|
+| Intensity profile | Swap Guys ↔ IOP appearance (age-standardised) | ≤ ~1 year, against a 5-year offset |
+| Image smoothness | IOP is ~2 SD smoother at identical native resolution; blur Guys/HH brains to IOP's level | +0.9 / 0.0 years (not younger) |
+| Feature fingerprint | ComBat on the features: site probe 91% → 36%, MAE 3.81 → 3.90 | IOP offset −4.5 → −4.0 years (persists) |
+
+The offset is absent in training subjects (−1.0) and replicates in validation (−4.1) and test (−5.1): it is a failure to generalise to new IOP individuals.
+
+![Harmonisation](figures/harmonisation.png)
+
+### 7. The model knows when it is unsure
+
+The spread of SFCN's predicted age distribution is larger for IOP: +2.5 years compared with Guys, after adjusting for age and sex.
+
+It **doubles** in a model that never saw IOP: 12.5 vs 6.1 years. Even so, that model's 90% range still covers the true age 92% of the time. It is less accurate there but not confidently wrong.
+
+For HH, which generalises, uncertainty barely rises. Per subject, uncertainty only weakly tracks error (ρ = 0.16).
+
+![Uncertainty](figures/uncertainty.png)
+
+**Reading across the analyses:**
+
+- Sex shows no effect anywhere.
+- Acquisition site shows up in the brain-age gap, in generalisation, in attribution, in the representation and in the model's uncertainty.
+- The prediction responds to acquisition appearance, so the model is partly "right for the wrong reasons".
+- Yet the IOP offset is not explained by intensity, smoothness or the feature-level site signature.
+- In IXI, site is confounded with the population each site recruited. The cause of the offset, untested acquisition properties or cohort differences, cannot be separated, and none of this is evidence about the people scanned.
 
 ## Method overview
 
@@ -102,6 +159,14 @@ flowchart LR
 | Fairness audit | `BAG ~ sex + site + age` and `abs_error ~ sex + site + age`, HC3 standard errors, 5,000-resample bootstrap CIs | [`scripts/06_fairness_audit.py`](scripts/06_fairness_audit.py) |
 | Leave-one-site-out | Retrain without each site (`--exclude-site`) and compare the unseen site against the seen sites' validation subjects | [`scripts/06b_loso_analysis.py`](scripts/06b_loso_analysis.py) |
 | Attribution | \|Σ gradient × activation\| at `conv_2` (HiResCAM-style), Harvard-Oxford regions, `share ~ sex + site + age` with Benjamini-Hochberg FDR, randomisation sanity check | [`scripts/07_gradcam.py`](scripts/07_gradcam.py) |
+| Site probe | Linear probe (CV on train) predicting site from the 64-d features, with and without age/sex regressed out | [`scripts/08_site_probe.py`](scripts/08_site_probe.py) |
+| Stress test | Quantile-match each brain to each site's age/sex-standardised intensity profile; contrast, noise, blur, non-uniformity sweeps | [`scripts/09_acquisition_stress_test.py`](scripts/09_acquisition_stress_test.py) |
+| Image sharpness | Native voxel size; gradient, Laplacian and FWHM sharpness by site, age/sex-adjusted | [`scripts/10_image_quality_by_site.py`](scripts/10_image_quality_by_site.py) |
+| Blur to IOP | Per-subject Gaussian blur matched to IOP's smoothness | [`scripts/11_blur_to_iop.py`](scripts/11_blur_to_iop.py) |
+| Harmonisation | ComBat on the features (train-fitted), age re-predicted through the unchanged head | [`scripts/12_harmonise_features.py`](scripts/12_harmonise_features.py) |
+| Uncertainty | Predictive SD and 90%-range coverage, main and leave-one-site-out models | [`scripts/13_uncertainty.py`](scripts/13_uncertainty.py) |
+| Deletion test | Smooth away the highest-, lowest- or randomly-ranked attribution cells | [`scripts/14_attribution_deletion_test.py`](scripts/14_attribution_deletion_test.py) |
+| Website | Builds the self-contained interactive page from saved results | [`scripts/15_build_demo.py`](scripts/15_build_demo.py) |
 
 **Rules followed throughout** (from [`PROJECT_GUIDE.md`](PROJECT_GUIDE.md)):
 - One model is trained on everyone, and results are split by group afterwards.
@@ -149,6 +214,8 @@ The two fine-tuned SFCNs are equivalent on validation.
 | [`README.md`](README.md), [`PROJECT_GUIDE.md`](PROJECT_GUIDE.md), [`implementation.md`](implementation.md) | Overview; living project guide (status of every phase with full results, data layout, analysis rules); original plan |
 | [`scripts/`](scripts/) | **Team pipeline:** official labels, v2 preprocessing, zero-shot baseline, SFCN fine-tuning and test evaluation, fairness audit, leave-one-site-out, attribution |
 | [`figures/`](figures/) | Key figures shown in this README |
+| [`demo/`](demo/) | Interactive website (`index.html`, self-contained) and its template |
+| [`report/`](report/) | Report draft |
 | [`notebooks/`](notebooks/) | Phase 1–3 notebooks (data indexing, original preprocessing, zero-shot validation; Colab oriented) |
 | [`experiments/preprocessing/`](experiments/preprocessing/README.md) | Alternative preprocessing, zero-shot inference, accuracy reports, input verification, label rebuild. `legacy/` holds the original, superseded preprocessing script |
 | [`experiments/sfcn/`](experiments/sfcn/README.md) | SFCN fine-tuning experiment: training and evaluation code, reports |
@@ -230,6 +297,17 @@ for S in IOP HH Guys; do python scripts/04_finetune_sfcn.py --project-dir $P --e
 python scripts/06b_loso_analysis.py --project-dir $P --out-dir $P/results/phase6b
 # 7. attribution maps and atlas comparison
 python scripts/07_gradcam.py --project-dir $P --checkpoint $P/checkpoints/sfcn_finetune_official/best.pt
+# 8. right for the wrong reasons? (run in this order: 09-14 reuse earlier outputs)
+CK=$P/checkpoints/sfcn_finetune_official/best.pt
+python scripts/08_site_probe.py --project-dir $P --checkpoint $CK
+python scripts/09_acquisition_stress_test.py --project-dir $P --checkpoint $CK
+python scripts/10_image_quality_by_site.py --project-dir $P
+python scripts/11_blur_to_iop.py --project-dir $P --checkpoint $CK
+python scripts/12_harmonise_features.py --project-dir $P --checkpoint $CK
+python scripts/13_uncertainty.py --project-dir $P --checkpoint-root $P/checkpoints
+python scripts/14_attribution_deletion_test.py --project-dir $P --checkpoint $CK
+# 9. website
+python scripts/15_build_demo.py --project-dir $P
 ```
 
 Each script's docstring lists its options and outputs. [`PROJECT_GUIDE.md`](PROJECT_GUIDE.md) records the exact numbers each step produced.
@@ -296,6 +374,9 @@ References:
 - Bashyam V. M. et al. (2020). MRI signatures of brain age and disease over the lifespan based on a deep brain network and 14,468 individuals worldwide. *Brain* 143(7):2312–2324.
 - Cole J. H. et al. (2018). Brain age predicts mortality. *Molecular Psychiatry* 23:1385–1392. (age-bias correction)
 - Adebayo J. et al. (2018). Sanity checks for saliency maps. *NeurIPS*.
+- Fortin J.-P. et al. (2018). Harmonization of cortical thickness measurements across scanners and sites. *NeuroImage* 167:104–120.
+- Johnson W. E., Li C. & Rabinovic A. (2007). Adjusting batch effects in microarray expression data using empirical Bayes methods. *Biostatistics* 8(1):118–127.
+- Samek W. et al. (2017). Evaluating the visualization of what a deep neural network has learned. *IEEE TNNLS* 28(11):2660–2673.
 - Draelos R. L. & Carin L. (2020). Use HiResCAM instead of Grad-CAM for faithful explanations of convolutional neural networks. arXiv:2011.08891.
 - Selvaraju R. R. et al. (2017). Grad-CAM: visual explanations from deep networks via gradient-based localization. *ICCV*.
 
