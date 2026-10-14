@@ -156,7 +156,21 @@ Audit whether a brain-age model is fair beyond accuracy (working title: *"Right 
     - **IOP unseen:** SD 12.46 vs 6.13 for seen sites, **+5.32 yrs [+4.65, +5.99]**. Coverage is 92% [85, 98] despite MAE 6.80. The model is less accurate but says so: it is **not confidently wrong**.
     - **HH unseen:** SD 9.36 vs 8.70, +0.79 [−0.08, +1.67]; coverage 93%. HH generalises (Phase 6b), and uncertainty barely rises.
   - Reading: the model's own uncertainty rises at the site where it is least reliable (IOP), most of all when IOP was never seen, and its ranges keep roughly nominal coverage there. At group level it flags the acquisition-site problem. At the individual level the signal is weak, so it is not a per-scan error detector.
-- **Phase 8 (report): not started.**
+- **Phase 9g (attribution deletion test): done (2026-10-14).** `scripts/14_attribution_deletion_test.py`, results in `results/phase9g_deletion_test/` (also on Drive). It took 21 min on CPU.
+  - Method:
+    - 60 held-out subjects (fixed random sample: Guys 32, HH 18, IOP 10).
+    - Brain cells of the Phase 7 maps (8 mm) were ranked by attribution.
+    - The top, bottom or random 5 / 10 / 20% of brain cells were replaced by a heavily smoothed copy of the image (σ = 8 voxels), so every condition applies the same perturbation and only its location differs. Random removal used two draws.
+    - Outcome: |change in predicted age|.
+  - Results, |change| in yrs (top / random / bottom):
+    - 5%: **4.83 / 1.04 / 0.46**
+    - 10%: 6.05 / 1.89 / 0.70
+    - 20%: 8.71 / 4.17 / 1.21
+  - Top minus random: +3.79 [+3.03, +4.66] at 5%, Wilcoxon p = 5e-11, larger for 93% of subjects. At 10% and 20%: +4.16 and +4.54, p ≤ 3e-9.
+  - Random minus bottom is also positive at every fraction (p ≤ 5e-10).
+  - Reading: the maps pass the deletion test. The regions they rank highest matter most to the prediction and the lowest-ranked matter least. Together with the randomisation sanity check (Phase 7), the attribution maps are faithful to the model at their 8 mm resolution.
+- **Phase 9h (website): built (2026-10-14).** `scripts/15_build_demo.py` writes `demo/index.html`, a self-contained offline page with story chapters, interactive charts and a brain explorer. All numbers are read from the saved results.
+- **Phase 8 (report): draft written (2026-10-14)**, `report/report_draft.md`. Still to do: team contributions, and the team's review and edits.
 
 ## Data location
 
