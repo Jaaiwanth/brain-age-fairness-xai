@@ -129,6 +129,23 @@ Audit whether a brain-age model is fair beyond accuracy (working title: *"Right 
     - Predicted age does respond to acquisition appearance, by 3–4 yrs for intensity-distribution swaps, mostly towards HH's appearance (9b).
     - Yet the two most obvious acquisition explanations for the IOP offset are ruled out at IOP's measured levels: global intensity distribution (≤ ~1 yr, 9b) and Gaussian smoothness (0 or opposite sign, 9d).
     - The IOP offset therefore comes from acquisition properties not tested here (e.g. the spatial pattern of tissue contrast, scanner-specific reconstruction or distortion), from cohort differences, or from both. IXI cannot separate these.
+- **Phase 9e (feature harmonisation): done (2026-10-14).** `scripts/12_harmonise_features.py`, results in `results/phase9e_harmonisation/` (also on Drive). It takes about 1 min: it uses the cached Phase 9a features and needs no model run.
+  - Method:
+    - The 64-d pooled features were harmonised with ComBat (location/scale, no empirical Bayes), preserving age, age² and sex. Site parameters came from train subjects only.
+    - Age was re-predicted through the model's own, unchanged age head; re-applying the head to the original features reproduces the model's predictions exactly.
+    - Bias correction was refitted on val for each version. Held-out subjects (val + test, n = 146); bootstrap CIs.
+  - Results, original → harmonised:
+    - Site probe (age/sex removed): **91.2% → 36.3%** (chance 33%). The fingerprint is removed.
+    - MAE: 3.81 → 3.90 held-out, 3.71 → 3.79 test-only; r 0.965 → 0.962. Accuracy is essentially unchanged.
+    - Corrected BAG, IOP vs Guys: **−4.53 [−7.04, −2.01] → −3.95 [−6.40, −1.37]**, so the offset largely persists. HH vs Guys: −0.69 → −1.02. Male vs female: −1.28 → −1.48 (both CIs include 0).
+  - The offset appears only in subjects the model did not train on. Using the Phase 5 correction, IOP vs Guys BAG (age- and sex-adjusted) is:
+    - train −0.97 [−3.09, +1.15], with train MAE 1.5–2.4, so the model fits its training subjects closely;
+    - val −4.08 [−7.31, −0.85];
+    - test −5.06 [−8.99, −1.13].
+
+    So the offset **replicates independently in val and test**. It is a failure to generalise to new IOP individuals, not something present in the fitted data. ComBat estimated on train therefore has no offset to remove.
+  - Reading: removing the site-identifying shifts from the features costs almost no accuracy and leaves the IOP offset mostly intact. So the offset is not carried by the features' site fingerprint. It lies along the age-relevant feature directions, for unseen IOP subjects. Together with Phases 9b and 9d, the IOP offset is not explained by global intensity, by Gaussian smoothness, or by the linear site signature in the features. Cohort differences or acquisition properties not tested remain possible; IXI cannot separate them.
+  - Note: a first implementation had a sign/intercept error (double-subtracted grand mean) that produced nonsense (MAE 14). It was caught by checking that harmonised features keep their means, and fixed before any result was used.
 - **Phase 8 (report): not started.**
 
 ## Data location
