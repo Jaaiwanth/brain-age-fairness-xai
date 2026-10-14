@@ -146,6 +146,16 @@ Audit whether a brain-age model is fair beyond accuracy (working title: *"Right 
     So the offset **replicates independently in val and test**. It is a failure to generalise to new IOP individuals, not something present in the fitted data. ComBat estimated on train therefore has no offset to remove.
   - Reading: removing the site-identifying shifts from the features costs almost no accuracy and leaves the IOP offset mostly intact. So the offset is not carried by the features' site fingerprint. It lies along the age-relevant feature directions, for unseen IOP subjects. Together with Phases 9b and 9d, the IOP offset is not explained by global intensity, by Gaussian smoothness, or by the linear site signature in the features. Cohort differences or acquisition properties not tested remain possible; IXI cannot separate them.
   - Note: a first implementation had a sign/intercept error (double-subtracted grand mean) that produced nonsense (MAE 14). It was caught by checking that harmonised features keep their means, and fixed before any result was used.
+- **Phase 9f (predictive uncertainty): done (2026-10-14).** `scripts/13_uncertainty.py`, results in `results/phase9f_uncertainty/` (also on Drive). It took about 10 min on CPU.
+  - Measure: the spread of SFCN's own predicted age distribution (predictive SD), plus whether the true age lies inside its 5th–95th percentile range (90% coverage). Raw predictions; 5,000 bootstrap resamples.
+  - Main model, held-out (n = 146):
+    - Overall coverage is 88%. The spread is wide relative to the error (mean |error|/SD ≈ 0.6–0.7), so the ranges are conservative rather than over-confident.
+    - IOP: predictive SD 8.06 vs Guys 5.66 and HH 6.39; IOP vs Guys, age/sex-adjusted, **+2.48 yrs [+1.30, +3.65]**. IOP coverage is 83% [67, 100]; Guys 87%, HH 91%.
+    - Per subject, uncertainty only weakly tracks error (Spearman +0.16, p = 0.057).
+  - Leave-one-site-out models (same subjects as Phase 6b; re-runs reproduce the saved predictions):
+    - **IOP unseen:** SD 12.46 vs 6.13 for seen sites, **+5.32 yrs [+4.65, +5.99]**. Coverage is 92% [85, 98] despite MAE 6.80. The model is less accurate but says so: it is **not confidently wrong**.
+    - **HH unseen:** SD 9.36 vs 8.70, +0.79 [−0.08, +1.67]; coverage 93%. HH generalises (Phase 6b), and uncertainty barely rises.
+  - Reading: the model's own uncertainty rises at the site where it is least reliable (IOP), most of all when IOP was never seen, and its ranges keep roughly nominal coverage there. At group level it flags the acquisition-site problem. At the individual level the signal is weak, so it is not a per-scan error detector.
 - **Phase 8 (report): not started.**
 
 ## Data location
