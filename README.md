@@ -120,9 +120,9 @@ The fingerprint is already in the pretrained model (93%) and in the raw input in
 - HH brains given IOP's look become younger: all 45 of 45.
 - IOP brains given HH's look become older: all 18 of 18.
 
-| Hospital read from features | Same brain, different scanner look |
-|---|---|
-| ![Site probe](figures/site_probe.png) | ![Stress test](figures/stress_test.png) |
+![Hospital read from the model's features](figures/site_probe.png)
+
+![Same brain, different scanner look](figures/stress_test.png)
 
 ### ⑥ But IOP's five years are *not* a simple scanner artefact
 
