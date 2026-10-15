@@ -222,15 +222,15 @@ def verdict_svg(c):
             ("open", "?", "IOP offset explained", "−5.1 yrs, replicated; not intensity, not blur, not the feature fingerprint.")]
     body = ""
     for i, (k, sym, title, note) in enumerate(rows):
-        y = 70 + i * 66
+        y = 66 + i * 82
         body += (f'<g>'
-                 f'<rect x="24" y="{y}" width="1152" height="56" rx="12" fill="{c["panel"]}" stroke="{c["line"]}"/>'
-                 f'<circle cx="58" cy="{y + 28}" r="15" fill="{c[k]}" fill-opacity=".15"/>'
-                 f'<text x="58" y="{y + 34}" text-anchor="middle" font-size="17" font-weight="800" fill="{c[k]}">{sym}</text>'
-                 f'<text x="90" y="{y + 34}" font-size="17" font-weight="700" fill="{c["ink"]}">{title}</text>'
-                 f'<text x="480" y="{y + 34}" font-size="14.5" fill="{c["ink2"]}">{note}</text></g>')
-    return f'''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 410" width="1200" height="410" font-family="{FONT}">
-<rect width="1200" height="410" rx="20" fill="{c["bg"]}"/><rect x=".5" y=".5" width="1199" height="409" rx="20" fill="none" stroke="{c["line"]}"/>
+                 f'<rect x="24" y="{y}" width="1152" height="72" rx="12" fill="{c["panel"]}" stroke="{c["line"]}"/>'
+                 f'<circle cx="58" cy="{y + 36}" r="17" fill="{c[k]}" fill-opacity=".15"/>'
+                 f'<text x="58" y="{y + 43}" text-anchor="middle" font-size="19" font-weight="800" fill="{c[k]}">{sym}</text>'
+                 f'<text x="90" y="{y + 31}" font-size="21" font-weight="700" fill="{c["ink"]}">{title}</text>'
+                 f'<text x="90" y="{y + 56}" font-size="17" fill="{c["ink2"]}">{note}</text></g>')
+    return f'''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 494" width="1200" height="494" font-family="{FONT}">
+<rect width="1200" height="494" rx="20" fill="{c["bg"]}"/><rect x=".5" y=".5" width="1199" height="493" rx="20" fill="none" stroke="{c["line"]}"/>
 <text x="24" y="44" font-size="14" letter-spacing="2.5" fill="{c["muted"]}">THE AUDIT SCORECARD</text>
 {body}</svg>'''
 
