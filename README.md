@@ -1,27 +1,38 @@
-# Right for the Wrong Reasons? Auditing Brain-Age Model Fairness Beyond Accuracy
+<div align="center">
 
-**A brain-age model fine-tuned on public MRI data: how accurate it is, whether it is equally accurate across sex and acquisition site, and where in the brain its attributions fall.**
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="figures/readme/hero-dark.svg">
+  <img alt="Right for the Wrong Reasons? Auditing a brain-age deep network beyond accuracy. Test error 3.71 years, no detectable sex gap, IOP brain-age offset of minus 5.1 years, scanner read from the model's features at 91 percent. Verdict: partly." src="figures/readme/hero-light.svg" width="100%">
+</picture>
 
-A brain-age model predicts a person's age from a T1-weighted MRI scan. The difference between predicted and real age is called the *brain-age gap* (BAG) and is studied as a candidate biomarker. A model can be accurate overall and still be systematically off for one group, or reach its predictions through different image features for different groups. This project audits that "beyond accuracy" question on the public [IXI dataset](https://brain-development.org/ixi-dataset/): healthy adults aged 20–86, scanned at three London hospitals.
+**[Interactive website](demo/index.html)** · **[Report](report/report_draft.md)** · **[Project log](PROJECT_GUIDE.md)** · **[Reproduce it](#reproducing-the-results)**
 
-| | |
-|---|---|
-| **Data** | IXI T1 MRI, 485 subjects with official labels; 339 / 73 / 73 train / validation / test; sites Guys, HH, IOP |
-| **Main model** | SFCN (Peng et al. 2021), pretrained on UK Biobank, fine-tuned on IXI |
-| **Comparison model** | DeepBrainNet (Bashyam et al. 2020), fine-tuned |
-| **Test accuracy** | MAE **3.71 years** [3.10, 4.38], r **0.966** |
-| **Sex** | no detectable difference in brain-age gap, error or attribution |
-| **Acquisition site** | IOP brain-age gap about **5 years lower** than Guys; IOP accuracy drops about **3 years** when unseen in training; attribution patterns differ between sites |
-| **Right for the wrong reasons?** | Partly. The site can be read from the model's features (**91%**, chance 33%), and changing only a scan's intensity appearance moves predicted age by **3–4 years**. Yet the IOP offset is **not** explained by intensity, blur or the feature fingerprint. The model's uncertainty rises at IOP. |
+<sub>Fine-tuned SFCN on 485 IXI brain MRIs · every number from code in this repo · test set used once · no clinical claims</sub>
 
-> This is a methods and fairness audit on healthy volunteers. It makes **no clinical claims**.
+</div>
 
-**Interactive website:** open [`demo/index.html`](demo/index.html) in a browser (it works offline). It walks through the findings chapter by chapter and lets you explore individual brains. **Report draft:** [`report/report_draft.md`](report/report_draft.md).
+---
+
+## The 30-second version
+
+A deep network reads a person's age from a brain MRI scan to within four years. We asked whether it is accurate **for everyone**, and whether it is accurate **for the right reasons**.
+
+<div align="center">
+<img src="figures/readme/scanner_look.gif" alt="Animation: one held-out brain from HH. Only its intensity profile changes, matched to the typical scan of HH, then Guys, then IOP. The anatomy is identical, but the model's predicted age falls from 59.1 to 56.8 to 55.2." width="88%">
+
+<sub><b>The same brain, three scanner "looks".</b> The anatomy never changes, only the intensity profile, which is matched to each hospital's typical scan. The model's answer moves by about 4 years. This brain is a typical case, not a cherry-pick: it is the median HH brain, and across all 45 HH brains the IOP look made every one younger.</sub>
+</div>
+
+That is the heart of the project: **an accurate model whose answer depends partly on how the brain was scanned.**
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="figures/readme/verdict-dark.svg">
+  <img alt="Audit scorecard. Accurate: yes, test MAE 3.71 years. Fair across sex: yes. Faithful heatmaps and honest uncertainty: yes. Acquisition-invariant: no, the site is read from its features at 91 percent and the scan look alone shifts age 3 to 4 years. IOP offset explained: open question, a replicated minus 5.1 years not explained by intensity, blur or the feature fingerprint." src="figures/readme/verdict-light.svg" width="100%">
+</picture>
 
 ## Contents
 
-- [Research questions](#research-questions)
-- [Key findings](#key-findings)
+- [The story in seven findings](#the-story-in-seven-findings)
 - [Method overview](#method-overview)
 - [Results tables](#results-tables)
 - [Caveats](#caveats)
@@ -31,110 +42,129 @@ A brain-age model predicts a person's age from a T1-weighted MRI scan. The diffe
 - [An important correction](#an-important-correction)
 - [Licences, attribution and references](#licences-attribution-and-references)
 
-## Research questions
+## The story in seven findings
 
-1. **Accuracy:** how well do pretrained brain-age CNNs predict age on IXI, and what does fine-tuning add over zero-shot use?
-2. **Fairness:** do prediction error or the brain-age gap differ by **sex** or **acquisition site** once age is controlled for? Does the model generalise to a site it never saw?
-3. **Attribution:** where in the brain do the model's attributions fall, and do those patterns differ between groups?
-4. **Right for the wrong reasons?** Does the model's representation encode the acquisition site? Does its prediction respond to acquisition appearance when the anatomy is unchanged? Can intensity, blur or the feature-level site signature explain the IOP offset? Does the model know when it is unsure?
+A brain-age model predicts age from a T1-weighted MRI scan. The difference between predicted and real age, the *brain-age gap* (BAG), is studied as a marker of brain health. A model can be accurate overall and still be systematically off for one group, or reach its answers through features that have nothing to do with the brain.
 
-## Key findings
+**Setup.**
 
-### 1. Fine-tuning roughly halves the error
+- **Data:** the public [IXI dataset](https://brain-development.org/ixi-dataset/), with 485 healthy adults aged 20–86 from three London hospitals (Guys, HH, IOP), split 339 / 73 / 73 into train / validation / test.
+- **Main model:** SFCN (Peng et al. 2021), pretrained on UK Biobank and fine-tuned here.
+- **Comparison model:** DeepBrainNet (Bashyam et al. 2020).
 
-The pretrained SFCN is already strongly age-related zero-shot (validation r 0.91). However, its UK Biobank output head only covers ages 42–82, so younger IXI subjects are predicted far too old. Fine-tuning with a wider 18–90 head brings validation MAE from 10.2 years (6.9 with a linear correction) to 3.9. The single test evaluation gives MAE 3.71.
+---
 
-| Zero-shot SFCN (validation) | Fine-tuned SFCN (test, evaluated once) |
+### ① It is accurate: fine-tuning halves the error
+
+> **Test MAE 3.71 years [3.10, 4.38], r = 0.966.** The test set was evaluated once, after every decision had been made on train and validation data.
+
+The UK Biobank model can only output ages 42–82, so every young adult comes out at about 55 (validation MAE 10.2). Re-training its head for ages 18–90 and fine-tuning the network brings validation MAE down to 3.9.
+
+| Before: zero-shot (validation) | After: fine-tuned (test, evaluated once) |
 |---|---|
 | ![Zero-shot scatter](figures/zero_shot_val_scatter.png) | ![Test scatter](figures/test_scatter.png) |
 
-### 2. No sex difference; an acquisition-site effect at IOP
+### ② It is fair across sex, but one hospital stands apart
 
-The test predictions were age-bias corrected (Cole et al. 2018), with the correction fitted on validation only. Models then control for age; the intervals are 95% bootstrap CIs.
+> **Men vs women: no difference.** The brain-age gap differs by −0.59 years [−2.67, +1.64]. **IOP vs Guys: −5.06 years [−8.66, −1.34]**, so IOP brains "look" five years younger.
 
-- **Sex:** male vs female BAG −0.59 years [−2.67, +1.64]; absolute error −0.64 [−1.90, +0.59].
-- **IOP vs Guys:** BAG **−5.06 years [−8.66, −1.34]**. 8 of 9 IOP test subjects have a negative gap, and leaving out any one subject keeps the effect between −4.18 and −5.93.
-- **Accuracy:** no group difference in absolute error has a CI that excludes 0.
+<details>
+<summary><b>How solid is the IOP offset?</b></summary>
+
+- 8 of 9 IOP test subjects have a negative gap.
+- Leaving out any single subject keeps the offset between −4.18 and −5.93.
+- It replicates independently: validation −4.1, test −5.1.
+- It is absent in the training subjects (−1.0), which the model fits closely. So it is a failure to generalise to **new** IOP people.
+- Predictions were age-bias corrected (Cole et al. 2018) with a correction fitted on validation only. Every model controls for age, and intervals are 95% bootstrap CIs.
+
+</details>
 
 ![Age-adjusted fairness effects](figures/fairness_effects.png)
 
-### 3. IOP is the site a model cannot generalise to unseen
+### ③ A model that never saw IOP stumbles there
 
-Three extra models were each trained without one site and evaluated on that site's subjects (leave-one-site-out):
-
-- HH generalises.
-- A model that never saw IOP is **3.30 years less accurate** there [+1.62, +4.93]: MAE 6.80 vs 3.59.
-- The IOP-vs-Guys gap has the same sign in every analysis.
+> Leave-one-site-out: **IOP unseen costs +3.30 years of error** [+1.62, +4.93] (MAE 6.80 vs 3.59). HH unseen costs nothing.
 
 ![Leave-one-site-out effects](figures/loso_effects.png)
 
-### 4. Attribution patterns differ between sites, not between sexes
+### ④ The heatmaps show where it looks, and they pass every test
 
-Attribution maps (gradient × activation at SFCN's `conv_2`) were summarised with the Harvard-Oxford atlas on 146 held-out subjects. Across all groups, most attribution falls on deep grey matter around the lateral ventricles, the periventricular white matter and the cerebellum.
+<div align="center">
+<img src="figures/readme/brain_sweep.gif" alt="Animation sweeping through the axial slices of one held-out brain, with the model's attribution map overlaid. Attribution is brightest around the ventricles and deep grey matter." width="88%">
+</div>
 
-A randomisation sanity check passes: maps from a model with re-initialised top layers correlate with the trained maps at Spearman r = 0.13. After age adjustment and FDR correction:
+Attribution concentrates on deep grey matter around the ventricles, which is known to change with age. The maps pass two checks:
 
-- **No region differs by sex.**
-- **Several regions differ by site.** For example, HH and IOP scans place less attribution on deep grey matter (−1.1 and −1.3 percentage points) and on the hippocampus/amygdala, and more on the cerebellum.
+- **Sanity check:** scrambling the model's layers destroys them (ρ = 0.13).
+- **Deletion test:** smoothing away the top-ranked 5% of the brain moves the prediction by **4.8 years**. A random 5% moves it by 1.0 year, and the lowest-ranked 5% by 0.5. Top beats random in 93% of brains (p = 5×10⁻¹¹).
 
-| Mean attribution, all held-out subjects | Share of attribution by region and site |
+Attribution patterns differ **between sites**, and **not between sexes**.
+
+<details>
+<summary><b>Attribution figures</b></summary>
+
+| Mean attribution, held-out subjects | Share of attribution by region and site |
 |---|---|
 | ![Mean attribution map](figures/attribution_mean_map.png) | ![Attribution by site](figures/attribution_by_site.png) |
 
-**The maps are faithful.** On 60 held-out brains, smoothing away the 5% of the brain the maps rank highest changes predicted age by **4.8 years**. The same amount of random brain changes it by 1.0 year, and the lowest-ranked 5% by 0.5. Top-ranked removal exceeds random removal in 93% of brains (p = 5e-11), and the same order holds at 10% and 20%.
+![Deletion test](figures/deletion_test.png)
 
-### 5. The model was only taught age, but it encodes the scanner
+</details>
 
-A linear probe on the model's 64-d internal features identifies the acquisition site of held-out scans:
+### ⑤ It was only taught age, but it learned the scanner
 
-| Features used by the probe | Site identified (chance 33%) |
-|---|---|
-| Age and sex only | 41% |
-| Fine-tuned SFCN features | 94% |
-| Fine-tuned SFCN features, age and sex removed | **91%** |
+> A simple classifier reads the **hospital** from the model's 64 internal features with **91%** balanced accuracy, after age and sex are removed. Chance is 33%, and age and sex alone get 41%.
 
-The fingerprint is already present in the pretrained model (93%), and the input intensities alone give 99.6%.
+The fingerprint is already in the pretrained model (93%) and in the raw input intensities (99.6%). Changing **only** a scan's intensity profile to another hospital's, with references standardised for age and sex, shifts predicted age by **3–4 years**:
 
-Changing **only** a scan's intensity appearance to another site's, with references standardised for age and sex, moves predicted age by **3–4 years**:
+- HH brains given IOP's look become younger: all 45 of 45.
+- IOP brains given HH's look become older: all 18 of 18.
 
-- HH brains given IOP's look: −3.9 years, and all 45 became younger.
-- IOP brains given HH's look: +3.1 years, and all 18 became older.
-
-| Site probe | Same brain, different scanner look |
+| Hospital read from features | Same brain, different scanner look |
 |---|---|
 | ![Site probe](figures/site_probe.png) | ![Stress test](figures/stress_test.png) |
 
-### 6. What the IOP offset is not
+### ⑥ But IOP's five years are *not* a simple scanner artefact
 
-We tested the obvious acquisition explanations at IOP's measured levels:
+We tested the three obvious acquisition explanations at IOP's measured levels. None reproduces the offset.
 
-| Explanation | Test | Result |
+| Suspect | Test | Verdict |
 |---|---|---|
-| Intensity profile | Swap Guys ↔ IOP appearance (age-standardised) | ≤ ~1 year, against a 5-year offset |
-| Image smoothness | IOP is ~2 SD smoother at identical native resolution; blur Guys/HH brains to IOP's level | +0.9 / 0.0 years (not younger) |
-| Feature fingerprint | ComBat on the features: site probe 91% → 36%, MAE 3.81 → 3.90 | IOP offset −4.5 → −4.0 years (persists) |
+| ❌ Brightness profile | Swap Guys ↔ IOP intensity profiles (age-standardised) | moves age by ≤ ~1 year |
+| ❌ Blurrier images | IOP is ~2 SD smoother at identical resolution; blur Guys and HH brains to exactly IOP's level | +0.9 / 0.0 years, not younger |
+| ❌ The feature fingerprint | ComBat removes it (site probe 91% → 36%, MAE 3.81 → 3.90) | offset −4.5 → −4.0, persists |
 
-The offset is absent in training subjects (−1.0) and replicates in validation (−4.1) and test (−5.1): it is a failure to generalise to new IOP individuals.
+<details>
+<summary><b>Why the age adjustment mattered, plus the figures</b></summary>
 
+IOP recruited younger volunteers (mean 41 vs 48). Without standardising each hospital's "typical look" for age, IOP's look appeared to make brains younger (−0.60 years). After standardising, this effect almost vanished (+0.11). This careful check changed the conclusion.
+
+![Image sharpness by site](figures/image_quality_by_site.png)
+![Blur to IOP](figures/blur_to_iop.png)
 ![Harmonisation](figures/harmonisation.png)
 
-### 7. The model knows when it is unsure
+</details>
 
-The spread of SFCN's predicted age distribution is larger for IOP: +2.5 years compared with Guys, after adjusting for age and sex.
+What remains possible is either scanner properties not tested here, or genuine differences in IOP's volunteers. IXI cannot separate the two; travelling-subject data could.
 
-It **doubles** in a model that never saw IOP: 12.5 vs 6.1 years. Even so, that model's 90% range still covers the true age 92% of the time. It is less accurate there but not confidently wrong.
+### ⑦ It knows when it is unsure
 
-For HH, which generalises, uncertainty barely rises. Per subject, uncertainty only weakly tracks error (ρ = 0.16).
+> The model's own uncertainty is highest for IOP (+2.5 years, age- and sex-adjusted). It **doubles** when IOP was never seen (12.5 vs 6.1 years), while its 90% range still contains the true age **92%** of the time. It is less accurate there, but **not confidently wrong**.
+
+For single brains, uncertainty only weakly predicts error (ρ = 0.16). It works as a warning signal for groups, not as an alarm for individual scans.
 
 ![Uncertainty](figures/uncertainty.png)
 
-**Reading across the analyses:**
+---
 
-- Sex shows no effect anywhere.
-- Acquisition site shows up in the brain-age gap, in generalisation, in attribution, in the representation and in the model's uncertainty.
-- The prediction responds to acquisition appearance, so the model is partly "right for the wrong reasons".
-- Yet the IOP offset is not explained by intensity, smoothness or the feature-level site signature.
-- In IXI, site is confounded with the population each site recruited. The cause of the offset, untested acquisition properties or cohort differences, cannot be separated, and none of this is evidence about the people scanned.
+> [!IMPORTANT]
+> **Reading across all seven:**
+> - Sex shows no effect anywhere.
+> - Acquisition site shows up in the brain-age gap, in generalisation, in attribution, in the representation and in uncertainty.
+> - The prediction responds to scan appearance alone, so the model is **partly right for the wrong reasons**.
+> - The IOP offset survives every acquisition explanation we tested.
+>
+> In IXI, site is confounded with who each hospital recruited. These are acquisition-site effects in a descriptive sense, not evidence about the people scanned. This is a methods audit on healthy volunteers and makes **no clinical claims**.
 
 ## Method overview
 
@@ -147,6 +177,13 @@ flowchart LR
     E --> F[Fairness audit<br/>sex, site, age-adjusted]
     D --> G[Leave-one-site-out<br/>3 extra models]
     D --> H[Attribution maps<br/>+ atlas regions]
+    H --> H2[Sanity + deletion<br/>tests]
+    D --> I{Right for the<br/>wrong reasons?}
+    I --> I1[Site probe<br/>on features]
+    I --> I2[Scanner-look<br/>stress test]
+    I --> I3[Sharpness +<br/>blur to IOP]
+    I --> I4[ComBat<br/>harmonisation]
+    I --> I5[Predictive<br/>uncertainty]
 ```
 
 | Step | What is done | Script |
