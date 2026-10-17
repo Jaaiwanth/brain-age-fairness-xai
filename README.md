@@ -5,7 +5,7 @@
   <img alt="Right for the Wrong Reasons? Auditing a brain-age deep network beyond accuracy. Test error 3.71 years, no detectable sex gap, IOP brain-age offset of minus 5.1 years, scanner read from the model's features at 91 percent. Verdict: partly." src="figures/readme/hero-light.svg" width="100%">
 </picture>
 
-**[Interactive website](demo/index.html)** · **[Report](report/report_draft.md)** · **[Project log](PROJECT_GUIDE.md)** · **[Reproduce it](#reproducing-the-results)**
+**[Interactive website](demo/index.html)** · **[Fairness passport](demo/passport.pdf)** · **[Report](report/report_draft.md)** · **[Project log](PROJECT_GUIDE.md)** · **[Reproduce it](#reproducing-the-results)**
 
 <sub>Fine-tuned SFCN on 485 IXI brain MRIs · every number from code in this repo · test set used once · no clinical claims</sub>
 
@@ -29,6 +29,16 @@ That is the heart of the project: **an accurate model whose answer depends partl
   <source media="(prefers-color-scheme: dark)" srcset="figures/readme/verdict-dark.svg">
   <img alt="Audit scorecard. Accurate: yes, test MAE 3.71 years. Fair across sex: yes. Faithful heatmaps and honest uncertainty: yes. Acquisition-invariant: no, the site is read from its features at 91 percent and the scan look alone shifts age 3 to 4 years. IOP offset explained: open question, a replicated minus 5.1 years not explained by intensity, blur or the feature fingerprint." src="figures/readme/verdict-light.svg" width="100%">
 </picture>
+
+## The model's fairness passport
+
+A one-page certificate for the audited model, like a nutrition label for AI. It gives a pass or fail stamp for each audit category, the evidence behind each one, what the model is and is not suitable for, and its known limits. It extends the idea of *model cards* (Mitchell et al. 2019) with checks that go beyond accuracy.
+
+<div align="center">
+<a href="demo/passport.pdf"><img src="figures/readme/passport.png" alt="Model fairness passport for SFCN on IXI. Stamps: accuracy pass, fairness by sex pass, fairness by site fail, scanner invariance fail, faithful explanations pass, honest uncertainty pass. Tables of evidence, usage guidance and known limitations." width="80%"></a>
+
+<sub>Download: <a href="demo/passport.pdf">PDF (A4)</a> · <a href="demo/passport.html">HTML</a></sub>
+</div>
 
 ## Contents
 
