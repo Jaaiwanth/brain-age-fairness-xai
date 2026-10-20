@@ -1,0 +1,210 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Project Explained</title>
+<style>
+@page{size:A4;margin:16mm 15mm}
+:root{--ink:#16181c;--ink2:#474c55;--muted:#868b94;--line:#e2e4e8;--accent:#1f5fbf;--soft:#eef3fb;--good:#0f7a3a;--goodbg:#e7f5ec;--bad:#b42318;--badbg:#fdebe9;--warn:#946200;--warnbg:#fdf4dd}
+*{box-sizing:border-box}
+body{margin:0;font:11pt/1.55 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color:var(--ink)}
+.wrap{max-width:760px;margin:0 auto}
+h1{font-size:28pt;line-height:1.05;margin:0 0 6px;letter-spacing:-.02em}
+h2{font-size:16pt;margin:26px 0 8px;padding-top:6px;border-top:2px solid var(--ink);break-after:avoid}
+h2 .n{color:var(--accent);margin-right:8px}
+h3{font-size:12pt;margin:16px 0 4px;break-after:avoid}
+p{margin:6px 0}
+.cover{height:250mm;display:flex;flex-direction:column;justify-content:center;break-after:page}
+.kicker{font-size:9pt;letter-spacing:.2em;text-transform:uppercase;color:var(--muted)}
+.lede{font-size:13pt;color:var(--ink2);max-width:600px}
+.big{font-size:40pt;font-weight:800;color:var(--accent);line-height:1}
+.box{border-radius:10px;padding:10px 14px;margin:10px 0;break-inside:avoid}
+.idea{background:var(--soft);border-left:4px solid var(--accent)}
+.good{background:var(--goodbg);border-left:4px solid var(--good)}
+.bad{background:var(--badbg);border-left:4px solid var(--bad)}
+.warn{background:var(--warnbg);border-left:4px solid var(--warn)}
+.box b.t{display:block;font-size:9pt;letter-spacing:.14em;text-transform:uppercase;margin-bottom:2px}
+table{width:100%;border-collapse:collapse;margin:8px 0;font-size:10pt;break-inside:avoid}
+th,td{border-bottom:1px solid var(--line);padding:5px 7px;text-align:left;vertical-align:top}
+th{font-size:8.5pt;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+td.n{white-space:nowrap;font-variant-numeric:tabular-nums}
+img{max-width:100%;display:block;margin:8px auto;border-radius:6px}
+figure{margin:10px 0;break-inside:avoid}
+figcaption{font-size:9pt;color:var(--muted);text-align:center}
+.steps{counter-reset:s;list-style:none;padding:0}
+.steps li{counter-increment:s;position:relative;padding:4px 0 4px 34px;break-inside:avoid}
+.steps li::before{content:counter(s);position:absolute;left:0;top:4px;width:24px;height:24px;border-radius:50%;background:var(--accent);color:#fff;font-weight:700;font-size:10pt;text-align:center;line-height:24px}
+.flow{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:10px 0}
+.flow span{background:var(--soft);border:1px solid #cfdcf2;border-radius:8px;padding:5px 9px;font-size:9.5pt}
+.flow i{color:var(--muted);font-style:normal}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:14px 0}
+.stats div{border:1px solid var(--line);border-radius:10px;padding:8px 10px}
+.stats b{display:block;font-size:17pt}
+.stats span{font-size:8.5pt;color:var(--muted)}
+.pb{break-before:page}
+code{font-family:Consolas,monospace;font-size:9.5pt;background:#f3f4f6;padding:1px 4px;border-radius:4px}
+.toc li{margin:2px 0}
+</style>
+</head>
+<body><div class="wrap">
+
+<section class="cover">
+  <div class="kicker">Brain-age fairness &amp; XAI project · team handover</div>
+  <h1>Right for the Wrong Reasons?<br><span style="color:var(--muted)">The whole project, explained from zero.</span></h1>
+  <p class="lede">What we built, why, every result in plain words, where everything lives, and how to run it. No prior knowledge needed. Read it top to bottom once and you will know the project end to end.</p>
+  <div class="stats">
+    <div><b>3.71 yrs</b><span>average error on unseen brains</span></div>
+    <div><b>None</b><span>difference between men and women</span></div>
+    <div><b>−5.1 yrs</b><span>IOP hospital brains look younger</span></div>
+    <div><b>91%</b><span>hospital read from the model's insides</span></div>
+  </div>
+  <div class="box idea"><b class="t">The answer in one line</b>The model is accurate and fair across sex, but it is <b>partly right for the wrong reasons</b>: it secretly recognises the scanner, and its answer moves when only the scan's look changes.</div>
+  <h3>Contents</h3>
+  <ol class="toc"><li>The big idea</li><li>Words you need</li><li>The data</li><li>The model</li><li>The journey, step by step</li><li>Results 1–3: accuracy, fairness, unseen sites</li><li>Results 4: the heatmaps</li><li>Results 5–7: right for the wrong reasons?</li><li>The deliverables</li><li>The rules we followed</li><li>Where everything is &amp; how to run it</li><li>Questions people will ask</li></ol>
+</section>
+
+<h2><span class="n">1</span>The big idea</h2>
+<p>A <b>brain-age model</b> is an AI that looks at a brain MRI scan and guesses the person's age. Doctors and researchers care about the difference between the guess and the real age: if your brain "looks" 8 years older than you are, that might say something about brain health.</p>
+<p>Most projects stop at "how accurate is it?". We asked two harder questions:</p>
+<ul><li><b>Is it fair?</b> Is it equally right for men and women, and for people scanned at different hospitals?</li>
+<li><b>Is it right for the right reasons?</b> Is it actually reading the brain, or is it partly noticing <i>which machine</i> took the picture?</li></ul>
+<div class="box idea"><b class="t">Analogy</b>A dog trained to find drugs in suitcases might really be smelling the plastic wrap one airport uses. It would be "right", but for the wrong reason. We checked whether our model is doing something similar with hospital scanners.</div>
+
+<h2><span class="n">2</span>Words you need (glossary)</h2>
+<table>
+<tr><th>Term</th><th>Meaning in plain words</th></tr>
+<tr><td><b>MRI / T1 scan</b></td><td>A 3D picture of the brain. T1 is the standard type showing tissue structure.</td></tr>
+<tr><td><b>Brain-age gap (BAG)</b></td><td>Predicted age minus real age. Positive = brain looks older; negative = looks younger.</td></tr>
+<tr><td><b>MAE</b></td><td>Mean absolute error: the average number of years the guess is off.</td></tr>
+<tr><td><b>r (correlation)</b></td><td>How closely predictions follow real ages. 1.0 is perfect.</td></tr>
+<tr><td><b>Train / validation / test</b></td><td>Train = the model learns from it. Validation = we tune and choose settings. Test = the final exam, opened <b>once</b>.</td></tr>
+<tr><td><b>Fine-tuning</b></td><td>Taking an already-trained model and training it a bit more on our data.</td></tr>
+<tr><td><b>Zero-shot</b></td><td>Using a model as-is, without training it on our data.</td></tr>
+<tr><td><b>Site</b></td><td>The hospital (and its scanner) where a scan was taken. Ours: Guys, HH, IOP.</td></tr>
+<tr><td><b>95% CI</b></td><td>Confidence interval: the range the true value very likely lies in. If it crosses 0, there is no clear difference.</td></tr>
+<tr><td><b>Heatmap / attribution</b></td><td>A colour map showing which brain areas the prediction is most sensitive to.</td></tr>
+<tr><td><b>Bias correction</b></td><td>A standard fix: brain-age models over-guess young people and under-guess old people.</td></tr>
+<tr><td><b>Harmonisation (ComBat)</b></td><td>A standard method that removes each hospital's average "shift" from data.</td></tr>
+</table>
+
+<h2><span class="n">3</span>The data</h2>
+<ul><li><b>IXI dataset</b>: public brain MRI scans of healthy adults aged 20–86 from three London hospitals: <b>Guys</b> (Philips 1.5T), <b>HH</b> (Philips 3T), <b>IOP</b> (GE 1.5T).</li>
+<li><b>485 people</b> after cleaning, split <b>339 train / 73 validation / 73 test</b>, the same split for both of our pipelines.</li>
+<li>14 scans were excluded: 10 had no record, 2 had no age, 2 had conflicting records.</li></ul>
+<div class="box warn"><b class="t">Important early fix</b>The first version of our demographics table attached ages to the <b>wrong people</b> (a row number was used as the subject ID). Correct models looked broken. We rebuilt every label from the official <code>IXI.xls</code>. Both of us found this independently, and the public iAudit project agrees with the corrected labels. Everything in this document uses the fixed labels.</div>
+<div class="box"><b class="t">Note</b>IOP recruited younger people (average 41 vs about 48 at the other two). That is why every comparison is <b>adjusted for age</b>.</div>
+
+<h2><span class="n">4</span>The model</h2>
+<p><b>SFCN</b> (Simple Fully Convolutional Network, Peng et al. 2021) is a 3D neural network, pretrained on about 14,000 UK Biobank brains. It won a brain-age competition.</p>
+<ol class="steps">
+<li>The scan is cleaned: skull removed, brightness unevenness corrected, aligned to a standard brain shape, cut to 160×192×160 voxels.</li>
+<li>Six layers of filters find patterns, from edges up to "how big are the fluid spaces".</li>
+<li>Everything is squeezed into <b>64 numbers</b>, the model's summary ("notes") of the brain.</li>
+<li>A final layer turns those into a <b>probability for each age</b> (18 to 90). The predicted age is the weighted average.</li></ol>
+<p>The original could only output ages 42–82, so we gave it a new 18–90 output layer and fine-tuned it in two stages (first the new layer, then the whole network gently). DeepBrainNet and a second SFCN, built in the <code>experiments/</code> pipeline, serve as independent comparisons.</p>
+
+<h2 class="pb"><span class="n">5</span>The journey, step by step</h2>
+<div class="flow"><span>Labels fixed</span><i>→</i><span>Preprocess scans</span><i>→</i><span>Zero-shot check</span><i>→</i><span>Fine-tune</span><i>→</i><span>Test once</span><i>→</i><span>Fairness audit</span><i>→</i><span>Unseen-site test</span><i>→</i><span>Heatmaps</span><i>→</i><span>Wrong-reasons investigation</span><i>→</i><span>Website · passport · report</span></div>
+<table>
+<tr><th>Phase</th><th>What we did</th><th>Script</th></tr>
+<tr><td>1–2</td><td>Rebuilt labels; preprocessed all scans</td><td><code>01b</code>, <code>02b</code></td></tr>
+<tr><td>3</td><td>Tested the original model without training</td><td><code>03b</code></td></tr>
+<tr><td>4</td><td>Fine-tuned SFCN (Colab GPU)</td><td><code>04</code></td></tr>
+<tr><td>5</td><td>One-time test evaluation + bias correction</td><td><code>05</code></td></tr>
+<tr><td>6</td><td>Fairness audit (sex, site) + leave-one-site-out</td><td><code>06</code>, <code>06b</code></td></tr>
+<tr><td>7</td><td>Heatmaps + brain-region analysis</td><td><code>07</code></td></tr>
+<tr><td>9a–g</td><td>Hospital probe, scanner-look test, sharpness, blur, harmonisation, uncertainty, heatmap deletion test</td><td><code>08</code>–<code>14</code></td></tr>
+<tr><td>—</td><td>Website, README visuals</td><td><code>15</code>, <code>16</code></td></tr>
+</table>
+
+<h2><span class="n">6</span>Results 1–3: accuracy, fairness, unseen sites</h2>
+<h3>① It is accurate</h3>
+<p>Before fine-tuning the error was <b>10.2 years</b> (young people were guessed at about 55). After fine-tuning: <b>3.71 years</b> on the test set (95% CI 3.10–4.38), correlation <b>0.966</b>. Published models on small datasets like IXI usually get 3–5 years.</p>
+<figure><img src="../figures/test_scatter.png"><figcaption>Predicted vs real age on the test set. Dots near the diagonal line = good predictions.</figcaption></figure>
+<p><b>Comparison:</b> on validation, our SFCN 3.90, the second SFCN 3.88, DeepBrainNet 4.12. The two SFCNs are equally good; test numbers must not be used to rank pipelines.</p>
+
+<h3>② Fair across sex, but one hospital stands out</h3>
+<table><tr><th>Comparison (age-adjusted)</th><th>Brain-age gap</th><th>Meaning</th></tr>
+<tr><td>Men vs women</td><td class="n">−0.59 [−2.67, +1.64]</td><td>No difference ✅</td></tr>
+<tr><td>HH vs Guys</td><td class="n">+1.06 [−1.44, +3.53]</td><td>No difference ✅</td></tr>
+<tr><td>IOP vs Guys</td><td class="n"><b>−5.06 [−8.66, −1.34]</b></td><td>IOP brains look ~5 yrs younger ⚠️</td></tr></table>
+<div class="box good"><b class="t">Is the IOP finding real?</b>Yes. 8 of 9 IOP test people have a negative gap; removing any one person keeps it between −4.2 and −5.9; it appears separately in validation (−4.1) and test (−5.1). In training people it is absent (−1.0), so it is a problem with <b>new</b> IOP people.</div>
+<figure><img src="../figures/fairness_effects.png"><figcaption>Group differences with confidence ranges. A range crossing the dashed 0 line = no clear difference.</figcaption></figure>
+
+<h3>③ A model that never saw IOP stumbles there</h3>
+<p>We trained three extra models, each with one hospital left out. Without IOP, error on IOP rose by <b>3.3 years</b> (6.8 vs 3.6). Without HH, nothing changed. IOP is the hard hospital to generalise to.</p>
+
+<h2 class="pb"><span class="n">7</span>Results 4: the heatmaps</h2>
+<p>Heatmaps show where the prediction is most sensitive. Ours light up the deep brain areas around the fluid spaces (ventricles), which are known to change with age.</p>
+<figure><img src="../figures/attribution_mean_map.png"><figcaption>Average heatmap over 146 held-out brains.</figcaption></figure>
+<p><b>Method note:</b> standard Grad-CAM gave empty maps for 20–80% of people, so we used gradient × activation (HiResCAM-style). This choice was made before looking at any group results.</p>
+<div class="box good"><b class="t">Two trust tests, both passed</b><b>Sanity check:</b> scramble the model's layers and the heatmaps change completely (similarity only 0.13), so they come from what it learned. <b>Deletion test:</b> blank out the 5% of brain the heatmap ranks highest and the prediction moves <b>4.8 years</b>; a random 5% moves it only 1.0; the lowest-ranked 5% only 0.5.</div>
+<p>Heatmap patterns differ between hospitals, but <b>not between men and women</b>.</p>
+
+<h2 class="pb"><span class="n">8</span>Results 5–7: right for the wrong reasons?</h2>
+<h3>⑤ The model learned the scanner</h3>
+<p>We took the model's 64 internal numbers and trained a simple program to guess the hospital from them alone.</p>
+<table><tr><th>What the guesser could see</th><th>Hospital guessed correctly (chance 33%)</th></tr>
+<tr><td>Only age and sex</td><td class="n">41%</td></tr>
+<tr><td>The model's 64 numbers</td><td class="n">94%</td></tr>
+<tr><td>The 64 numbers, age and sex removed</td><td class="n"><b>91%</b></td></tr></table>
+<p>The model was <b>never told</b> about hospitals, yet its "notes" carry a scanner fingerprint. It was already there in the original UK Biobank model (93%).</p>
+<h3>The scanner-look test (the key experiment)</h3>
+<p>We took the <b>same brain</b> and changed only its brightness pattern to match another hospital's typical scan. The anatomy never changed.</p>
+<figure><img src="../figures/stress_test.png"><figcaption>Left: average change in predicted age when each hospital's brains get another hospital's look. Right: single changes (contrast, noise, blur).</figcaption></figure>
+<ul><li>HH brains given IOP's look: <b>3.9 years younger</b>, all 45 of 45.</li>
+<li>IOP brains given HH's look: <b>3.1 years older</b>, all 18 of 18.</li></ul>
+<div class="box bad"><b class="t">What this proves</b>The same brain gets a different age depending on how it was scanned. The model is <b>partly right for the wrong reasons</b>.</div>
+
+<h3>⑥ But IOP's 5 years are not a simple scanner trick</h3>
+<table><tr><th>Suspect</th><th>Test</th><th>Result</th></tr>
+<tr><td>Brightness</td><td>Swap Guys ↔ IOP brightness (age-adjusted)</td><td>≤ 1 year ❌</td></tr>
+<tr><td>Blur</td><td>IOP scans are much blurrier at the same resolution; blur other brains to IOP's level</td><td>Not younger (+0.9 / 0.0) ❌</td></tr>
+<tr><td>The fingerprint</td><td>Remove it with ComBat (hospital recognition 91% → 36%, accuracy unchanged)</td><td>Offset stays (−4.5 → −4.0) ❌</td></tr></table>
+<div class="box warn"><b class="t">A careful check that changed a conclusion</b>Because IOP's volunteers were younger, IOP's "typical look" was first built partly from younger brains. Once we adjusted each hospital's look for age and sex, the apparent IOP effect almost vanished. This is why we always adjust for age.</div>
+<p><b>So what causes it?</b> Either scanner properties we did not test, or IOP's volunteers genuinely differ. IXI cannot separate the two; that would need the same people scanned at several hospitals.</p>
+
+<h3>⑦ It knows when it is unsure</h3>
+<p>The model gives a probability for every age, so it also shows how sure it is. It is <b>more unsure about IOP</b> (+2.5 years), and <b>twice as unsure</b> when it never saw IOP (12.5 vs 6.1), while its "90% range" still contains the true age 92% of the time. It is less accurate there but admits it: <b>not confidently wrong</b>. For single scans the signal is weak; it is a group-level warning.</p>
+
+<h2 class="pb"><span class="n">9</span>The deliverables</h2>
+<table><tr><th>What</th><th>Where</th><th>What it is</th></tr>
+<tr><td><b>Interactive website</b></td><td><code>demo/index.html</code></td><td>Story in chapters with interactive charts + "explore a brain" (pick a brain, toggle hospital looks). Works offline; just double-click.</td></tr>
+<tr><td><b>Fairness passport</b></td><td><code>demo/passport.pdf</code></td><td>One-page certificate: pass/fail stamps, evidence, what the model is and is not suitable for.</td></tr>
+<tr><td><b>Report draft</b></td><td><code>report/report_draft.md</code></td><td>Full academic write-up. <b>Team contributions section still to fill.</b></td></tr>
+<tr><td><b>README</b></td><td>GitHub front page</td><td>Animated banner, "same brain, three looks" animation, scorecard, seven findings.</td></tr>
+<tr><td><b>Project log</b></td><td><code>PROJECT_GUIDE.md</code></td><td>Every result with its date, method and caveats.</td></tr></table>
+<figure><img src="../figures/readme/passport.png" style="max-width:70%"><figcaption>The fairness passport.</figcaption></figure>
+
+<h2 class="pb"><span class="n">10</span>The rules we followed</h2>
+<ol class="steps">
+<li><b>One model trained on everyone</b>; results split by group afterwards.</li>
+<li>Say <b>"acquisition-site effects"</b>, never "hospital bias".</li>
+<li>Never "the model thinks differently"; say <b>attribution patterns differ</b>.</li>
+<li><b>No clinical claims</b>: healthy volunteers, methods audit only.</li>
+<li><b>Control for age</b> in every comparison.</li>
+<li><b>Report confidence intervals</b> everywhere.</li>
+<li><b>Never tune on the test set</b>: it was opened exactly once.</li></ol>
+
+<h2><span class="n">11</span>Where everything is &amp; how to run it</h2>
+<table><tr><th>Location</th><th>Contents</th></tr>
+<tr><td>GitHub <code>main</code></td><td>All code, figures, website, report, passport (passport via pull request #5)</td></tr>
+<tr><td><code>scripts/</code></td><td>Our pipeline, numbered in run order <code>01b</code> → <code>16</code></td></tr>
+<tr><td><code>experiments/</code></td><td>Second SFCN + DeepBrainNet pipeline</td></tr>
+<tr><td>Google Drive <code>BrainAge_Project/</code></td><td>Checkpoints, all <code>results/phaseX</code> folders, website copy</td></tr>
+<tr><td>Laptop <code>D:\ML_Project</code></td><td>Preprocessed scans (<code>IXI_preprocessed_v2</code>), results</td></tr></table>
+<p><b>To run a step:</b> <code>python scripts/&lt;script&gt;.py --project-dir &lt;folder&gt;</code>. Each script's top comment explains its inputs and outputs. Fine-tuning needs a GPU (Colab T4); every other step runs on a laptop CPU in 1–45 minutes.</p>
+
+<h2><span class="n">12</span>Questions people will ask</h2>
+<table>
+<tr><th>Question</th><th>Short answer</th></tr>
+<tr><td>Why SFCN?</td><td>Competition winner, pretrained on 14k brains, 3D, and its age-probability output gives uncertainty for free.</td></tr>
+<tr><td>Is 3.7 years good?</td><td>Yes; typical published range on small datasets is 3–5 years.</td></tr>
+<tr><td>Only 9 IOP test people?</td><td>Wide range, but it replicates in validation and survives leaving out any one person.</td></tr>
+<tr><td>Is IOP's hospital biased?</td><td>We call it an acquisition-site effect; in IXI, site and the people recruited are mixed up.</td></tr>
+<tr><td>Are the heatmaps trustworthy?</td><td>They passed the randomisation and deletion tests.</td></tr>
+<tr><td>Did you tune on the test set?</td><td>No. Opened once, after every decision was final.</td></tr>
+<tr><td>What next?</td><td>Same-person multi-scanner data; run the audit on DeepBrainNet; train a scanner-blind model.</td></tr>
+</table>
+<div class="box idea"><b class="t">The final sentence to remember</b>Accurate and fair across sex, but not scanner-invariant. Brain-age gaps from it should not be compared across scanners without checking first, and the model's own uncertainty tells you where to be careful.</div>
+</div></body></html>
