@@ -170,6 +170,7 @@ Audit whether a brain-age model is fair beyond accuracy (working title: *"Right 
   - Random minus bottom is also positive at every fraction (p ≤ 5e-10).
   - Reading: the maps pass the deletion test. The regions they rank highest matter most to the prediction and the lowest-ranked matter least. Together with the randomisation sanity check (Phase 7), the attribution maps are faithful to the model at their 8 mm resolution.
 - **Phase 9h (website): built (2026-10-14).** `scripts/15_build_demo.py` writes `demo/index.html`, a self-contained offline page with story chapters, interactive charts and a brain explorer. All numbers are read from the saved results.
+- **Phase 9i (live demo): built (2026-10-21).** `demo/live_demo.py` (Gradio; launcher `demo/run_live_demo.bat`) runs the fine-tuned model live on any val/test brain: prediction with its age distribution, attribution map with a live deletion test, scanner-look swap (Phase 9b references, own-site look as control) with optional blur, and the site probe (refitted on train features from Phase 9a). Checked against saved results: features match the Phase 9a cache, and IXI559 gives 59.1 → 55.2 with an IOP look, as in Phase 9b.
 - **Phase 8 (report): draft written (2026-10-14)**, `report/report_draft.md`. Still to do: team contributions, and the team's review and edits.
 
 ## Data location

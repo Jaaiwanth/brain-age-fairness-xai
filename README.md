@@ -5,7 +5,7 @@
   <img alt="Right for the Wrong Reasons? Auditing a brain-age deep network beyond accuracy. Test error 3.71 years, no detectable sex gap, IOP brain-age offset of minus 5.1 years, scanner read from the model's features at 91 percent. Verdict: partly." src="figures/readme/hero-light.svg" width="100%">
 </picture>
 
-**[Interactive website](demo/index.html)** · **[Fairness passport](demo/passport.pdf)** · **[Report](report/report_draft.md)** · **[Project log](PROJECT_GUIDE.md)** · **[Reproduce it](#reproducing-the-results)**
+**[Interactive website](demo/index.html)** · **[Live demo](demo/live_demo.py)** · **[Fairness passport](demo/passport.pdf)** · **[Report](report/report_draft.md)** · **[Project log](PROJECT_GUIDE.md)** · **[Reproduce it](#reproducing-the-results)**
 
 <sub>Fine-tuned SFCN on 485 IXI brain MRIs · every number from code in this repo · test set used once · no clinical claims</sub>
 
@@ -214,6 +214,7 @@ flowchart LR
 | Uncertainty | Predictive SD and 90%-range coverage, main and leave-one-site-out models | [`scripts/13_uncertainty.py`](scripts/13_uncertainty.py) |
 | Deletion test | Smooth away the highest-, lowest- or randomly-ranked attribution cells | [`scripts/14_attribution_deletion_test.py`](scripts/14_attribution_deletion_test.py) |
 | Website | Builds the self-contained interactive page from saved results | [`scripts/15_build_demo.py`](scripts/15_build_demo.py) |
+| Live demo | Runs the model live in the browser: predict, explain + deletion test, scanner-look swap, site probe | [`demo/live_demo.py`](demo/live_demo.py) |
 
 **Rules followed throughout** (from [`PROJECT_GUIDE.md`](PROJECT_GUIDE.md)):
 - One model is trained on everyone, and results are split by group afterwards.
@@ -355,6 +356,8 @@ python scripts/13_uncertainty.py --project-dir $P --checkpoint-root $P/checkpoin
 python scripts/14_attribution_deletion_test.py --project-dir $P --checkpoint $CK
 # 9. website
 python scripts/15_build_demo.py --project-dir $P
+# live demo in the browser (needs gradio; opens http://127.0.0.1:7860)
+python demo/live_demo.py --project-dir $P --sfcn-repo external/UKBiobank_deep_pretrain --checkpoint $P/checkpoints/sfcn_finetune_official/best.pt
 ```
 
 Each script's docstring lists its options and outputs. [`PROJECT_GUIDE.md`](PROJECT_GUIDE.md) records the exact numbers each step produced.
