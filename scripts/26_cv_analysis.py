@@ -85,10 +85,14 @@ def main():
         e = pd.read_csv(f)
         e["gap"] = e.pred - e.AGE
         for ep, g in e.groupby("epoch"):
-            ref = g[(g.role == "outer") & (g.site != "IOP")].gap.mean()
+            # Age-adjusted: IOP indicator in a gap ~ age + group model, against out-of-sample Guys/HH.
+            ref = g[(g.role == "outer") & (g.site != "IOP")].assign(grp=0)
+            def adj(target):
+                d = pd.concat([ref, target.assign(grp=1)])
+                return float(smf.ols("gap ~ age_ + grp", data=d.assign(age_=d.AGE)).fit().params["grp"])
             traj.append({"fold": f.parent.name, "epoch": ep,
-                         "train_IOP_minus_ref": g[g.role == "train_IOP"].gap.mean() - ref,
-                         "outer_IOP_minus_ref": g[(g.role == "outer") & (g.site == "IOP")].gap.mean() - ref})
+                         "train_IOP_minus_ref": adj(g[g.role == "train_IOP"]),
+                         "outer_IOP_minus_ref": adj(g[(g.role == "outer") & (g.site == "IOP")])})
     traj = pd.DataFrame(traj)
     traj.to_csv(out_dir / "training_dynamics.csv", index=False)
     fig, ax = plt.subplots(figsize=(6.5, 3.6))
@@ -99,7 +103,7 @@ def main():
     ax.plot(m.index, m.train_IOP_minus_ref, color="#946200", lw=2.5, label="IOP subjects in training")
     ax.plot(m.index, m.outer_IOP_minus_ref, color="#1baf7a", lw=2.5, label="IOP subjects held out")
     ax.axhline(0, color="k", lw=.8); ax.axvline(5.5, color="grey", ls=":", lw=1)
-    ax.set(xlabel="epoch (stage 2 from epoch 6)", ylabel="IOP gap minus Guys/HH gap (raw, yrs)",
+    ax.set(xlabel="epoch (stage 2 from epoch 6)", ylabel="age-adjusted IOP gap vs Guys/HH (yrs)",
            title="IOP offset during training (5 CV folds)")
     ax.legend(frameon=False, fontsize=8); ax.spines[["top", "right"]].set_visible(False)
     fig.tight_layout(); fig.savefig(out_dir / "training_dynamics.png", dpi=150)
