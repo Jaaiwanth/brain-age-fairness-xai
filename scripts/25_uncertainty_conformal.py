@@ -67,9 +67,9 @@ def main():
     for lv in LEVELS:
         lo, hi = central(prob, lv)
         cov = (oof.age >= lo) & (oof.age <= hi)
-        for site, g in oof.assign(cov=cov, w=hi - lo).groupby("site"):
+        for site, g in oof.assign(covered=cov, w=hi - lo).groupby("site"):
             rel.append({"method": "model's own distribution", "level": lv, "site": site, "n": len(g),
-                        "coverage": float(g.cov.mean()), "mean_width": float(g.w.mean())})
+                        "coverage": float(g.covered.mean()), "mean_width": float(g.w.mean())})
         for method in ["conformal (pooled)", "conformal (per site, Mondrian)"]:
             cov_all, width_all = np.zeros(len(oof), bool), np.zeros(len(oof))
             for k in oof.fold.unique():
@@ -82,9 +82,9 @@ def main():
                     qs = oof.loc[ev, "site"].map(qmap).to_numpy()
                 cov_all[ev.to_numpy()] = oof.loc[ev, "res"].to_numpy() <= qs
                 width_all[ev.to_numpy()] = 2 * qs
-            for site, g in oof.assign(cov=cov_all, w=width_all).groupby("site"):
+            for site, g in oof.assign(covered=cov_all, w=width_all).groupby("site"):
                 rel.append({"method": method, "level": lv, "site": site, "n": len(g),
-                            "coverage": float(g.cov.mean()), "mean_width": float(g.w.mean())})
+                            "coverage": float(g.covered.mean()), "mean_width": float(g.w.mean())})
     rel = pd.DataFrame(rel)
     rel.to_csv(out_dir / "reliability_by_site.csv", index=False)
     res["reliability_90"] = rel[rel.level == 0.9].round(3).to_dict("records")
