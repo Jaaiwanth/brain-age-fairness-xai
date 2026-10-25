@@ -280,7 +280,25 @@ Zero-shot model, before fine-tuning$^{*}$ & $-3.34$ \ci{-4.71}{-1.91} \\
 \end{figure*}
 
 \subsection{Where the model looks, and whether to trust it}
-Attribution concentrates on deep grey matter around the ventricles, periventricular white matter and the cerebellum; normalised by volume, deep grey matter receives 3.2 times its volume share (Fig.~\ref{fig:attr}). The maps depend on the learned weights (randomisation $\rho=0.13$). Removing the top-ranked 5\% of cells changed predictions far more than random cells under both baselines (\pend{smooth and mean baseline numbers, signed and absolute}), and Integrated Gradients agreed with the maps (\pend{median Spearman, top-10\% overlap}). No region differed by sex after FDR correction. By site, HH and IOP place 13--16\% less attribution density on deep grey matter and 12--15\% less on the hippocampus and amygdala than Guys ($q<0.001$); these are relative differences in density, not artefacts of region size.
+Attribution concentrates on deep grey matter around the ventricles, periventricular white matter and the cerebellum; normalised by volume, deep grey matter receives 3.2 times its volume share (Fig.~\ref{fig:attr}). The maps depend on the learned weights (randomisation $\rho=0.13$). Removing the top-ranked 5\% of cells changed predictions far more than random or bottom-ranked cells under both baselines (Table~\ref{tab:del}): $|\Delta\hat{y}|$ 4.83 vs 1.18 vs 0.46 years with smoothing and 6.49 vs 1.99 vs 0.97 with mean infill (top $>$ random in 95\% and 88\% of subjects, Wilcoxon $p<10^{-8}$; random $>$ bottom, $p<10^{-4}$). The signed change from removing top-ranked cells was positive (+1.67 and +2.56 years): predictions became \emph{older}, opposite to the effect of blur, so the result is not driven by the smoothing baseline. Integrated Gradients agreed with the maps (median Spearman 0.58 across brain cells; 40\% overlap of the top 10\% of cells, against 10\% expected by chance). No region differed by sex after FDR correction. By site, HH and IOP place 13--16\% less attribution density on deep grey matter and 12--15\% less on the hippocampus and amygdala than Guys ($q<0.001$); these are relative differences in density, not artefacts of region size.
+
+\begin{table}[t]
+\caption{Deletion test, 60 held-out subjects (years)}
+\label{tab:del}
+\centering
+\setlength{\tabcolsep}{3pt}
+\begin{tabular}{llccc}
+\toprule
+Baseline & Removed & Top-ranked & Random & Bottom-ranked \\
+\midrule
+Smoothing & 5\%  & \textbf{4.83} ($+1.67$) & 1.18 ($+0.22$) & 0.46 ($-0.12$) \\
+Smoothing & 10\% & \textbf{6.05} ($+0.93$) & 1.85 ($-0.35$) & 0.71 ($-0.05$) \\
+Mean infill & 5\%  & \textbf{6.49} ($+2.56$) & 1.99 ($-0.60$) & 0.97 ($-0.87$) \\
+Mean infill & 10\% & \textbf{8.15} ($+2.19$) & 3.32 ($-1.23$) & 1.49 ($-1.24$) \\
+\bottomrule
+\multicolumn{5}{l}{\footnotesize Mean $|\Delta\hat{y}|$ (mean signed $\Delta\hat{y}$).}
+\end{tabular}
+\end{table}
 
 \begin{figure}[t]
 \centering
