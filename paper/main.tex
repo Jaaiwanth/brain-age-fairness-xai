@@ -9,94 +9,83 @@
 \usepackage{url}
 \graphicspath{{figures/}}
 \newcommand{\ci}[2]{[$#1$,\,$#2$]}
+\newcommand{\pend}[1]{\textcolor{red}{[#1]}}
 
 \begin{document}
 
-\title{Right for the Wrong Reasons? Auditing a Deep Brain-Age Model for Fairness, Acquisition Shortcuts and Explanation Faithfulness}
+\title{Not Just Scanner Bias: A Layered Audit of a Deep Brain-Age Model Beyond Accuracy}
 
 \author{
-\IEEEauthorblockN{Adharshan N\IEEEauthorrefmark{1}\IEEEauthorrefmark{2}}
+\IEEEauthorblockN{Adharshan N\IEEEauthorrefmark{1}}
 \IEEEauthorblockA{\textit{School of Computer Science and Engineering}\\
 \textit{Vellore Institute of Technology}\\
 Chennai, India\\
 adharshan2706@gmail.com}
 \and
-\IEEEauthorblockN{Jaaiwanth K\IEEEauthorrefmark{1}\IEEEauthorrefmark{2}}
+\IEEEauthorblockN{Jaaiwanth K\IEEEauthorrefmark{1}}
 \IEEEauthorblockA{\textit{School of Computer Science and Engineering}\\
 \textit{Vellore Institute of Technology}\\
 Chennai, India\\
 jaaiwanth90@gmail.com}
 \and
-\IEEEauthorblockN{Shridevi S\IEEEauthorrefmark{3}}
+\IEEEauthorblockN{Shridevi S\IEEEauthorrefmark{2}}
 \IEEEauthorblockA{\textit{Centre for Neuroinformatics}\\
 \textit{Vellore Institute of Technology}\\
 Chennai, India\\
 [faculty email]}
-\thanks{\IEEEauthorrefmark{1}These authors contributed equally to this work.}
-\thanks{\IEEEauthorrefmark{2}School of Computer Science and Engineering (SCOPE). \IEEEauthorrefmark{3}Corresponding author.}
+\thanks{\IEEEauthorrefmark{1}These authors contributed equally to this work. \IEEEauthorrefmark{2}Corresponding author.}
 }
 
 \maketitle
 
 \begin{abstract}
-Brain-age models predict chronological age from structural MRI, and the brain-age gap (predicted minus chronological age) is widely studied as a marker of brain health. Such models are usually judged by accuracy alone, yet an accurate model can still be biased against subgroups or rely on non-anatomical shortcuts. We present a layered audit of a state-of-the-art brain-age network beyond accuracy. We fine-tuned the UK Biobank-pretrained Simple Fully Convolutional Network (SFCN) on 485 T1-weighted scans from the public IXI dataset (three London acquisition sites, ages 20--86). On a test set evaluated once, it reached a mean absolute error of 3.71 years (95\% CI 3.10--4.38; $r=0.966$) with no detectable sex disparity. However, scans from one site received an age-adjusted brain-age gap 5.06 years lower than the reference site (CI $-8.66$ to $-1.34$), an offset that replicated in an independent validation split. Three experiments show that the model is partly right for the wrong reasons: the acquisition site is decodable from its 64-dimensional representation with 91.2\% balanced accuracy after removing age and sex (chance 33\%); changing only a scan's intensity appearance to another site's shifts predicted age by 3--4 years in the same direction for every subject; and the offset is not explained by global intensity, matched image smoothness or the representation's site signature, which ComBat removes (probe 36.3\%) while leaving most of the offset. Attribution maps passed randomisation and deletion tests, and predictive uncertainty doubled on an unseen site while keeping 92\% coverage. We summarise the audit as a one-page model fairness passport and release all code.
+Brain-age models predict chronological age from structural MRI, and the brain-age gap is studied as a marker of brain health. When such a model shows a disparity between acquisition sites, the disparity is often attributed to scanner differences without a test. We present a layered, pre-specified audit of a UK Biobank-pretrained SFCN fine-tuned on 485 T1-weighted IXI scans from three London sites. The model is accurate (test MAE 3.71 years, $r=0.966$) and its errors do not differ by sex (equivalence within $\pm2$ years). Scans from one site (IOP) receive a brain-age gap about 4--5 years lower than the reference site. The offset replicates across splits and in 5-fold cross-validation over all 412 non-test subjects (\pend{CV IOP offset, n=61}), survives eight ways of handling age, including age matching and a nonlinear adjustment, and is already present in the pretrained model before any training on IXI ($-3.3$ years, $p=5\times10^{-6}$). The model is sensitive to acquisition appearance: the site is linearly decodable from its features (91\% vs a 50\% permutation ceiling), and giving Hammersmith brains IOP's intensity appearance lowers their predicted age by 3.9 years. Yet this sensitivity does not explain the disparity: intensity, matched image smoothness, head size, education, BMI, ethnicity, and removing site information from the features with ComBat, ComBat-GAM or age-conditional concept erasure all leave the offset in place. Naive concept erasure appears to remove it only by also erasing age information. Attribution maps pass randomisation and deletion tests under two baselines, and conformal intervals give valid coverage per site. We summarise the audit as a protocol-based fairness passport with graded, pre-specified verdicts.
 \end{abstract}
 
 \begin{IEEEkeywords}
-brain age, MRI, fairness, shortcut learning, explainable AI, site effects, harmonisation, uncertainty
+brain age, MRI, fairness, site effects, shortcut learning, explainable AI, harmonisation, conformal prediction
 \end{IEEEkeywords}
 
 %=====================================================================
 \section{Introduction}
 %=====================================================================
-Brain-age models learn to predict a person's chronological age from a structural MRI scan \cite{cole2017trends,franke2019ten}. Applied to a new person, the brain-age gap (BAG) between predicted and chronological age is interpreted as accelerated or delayed brain ageing, and it has been associated with mortality, cognitive decline and neurological disease \cite{cole2018mortality}. Deep convolutional networks now predict age with errors of a few years \cite{cole2017deep,peng2021sfcn,bashyam2020dbn}.
+Brain-age models learn to predict a person's chronological age from a structural MRI scan \cite{cole2017trends,franke2019ten}. The brain-age gap (BAG) between predicted and chronological age is interpreted as accelerated or delayed brain ageing and has been associated with mortality and neurological disease \cite{cole2018mortality}. Deep convolutional networks predict age with errors of a few years \cite{cole2017deep,peng2021sfcn,bashyam2020dbn,leonardsen2022pyment}.
 
-Accuracy alone does not make a model trustworthy. First, a model can be accurate on average and still be systematically biased for a subgroup \cite{larrazabal2020gender,seyyed2021underdiagnosis,riccilara2022fairness}. For brain age, a subgroup bias means that the brains of one group look ``older'' or ``younger'' for reasons unrelated to biology \cite{picarra2023brainage}. Second, a model can be \emph{right for the wrong reasons}: deep networks exploit shortcuts \cite{geirhos2020shortcut}, and medical-imaging models are known to use hospital-specific acquisition properties instead of pathology \cite{zech2018pneumonia,degrave2021covid}. In multi-site MRI, scanner and protocol differences are a well-known source of such site effects \cite{glocker2019scanner,fortin2018harmonization,dinsdale2021unlearning}. Third, the explanations used to inspect a model can themselves be unfaithful \cite{adebayo2018sanity,hooker2019benchmark}.
+Accuracy alone does not make a model trustworthy. A model can be accurate on average and biased for a subgroup \cite{larrazabal2020gender,seyyed2021underdiagnosis,riccilara2022fairness,picarra2023brainage}; it can exploit non-biological shortcuts such as hospital-specific acquisition properties \cite{geirhos2020shortcut,zech2018pneumonia,degrave2021covid}; and the explanations used to inspect it can themselves be unfaithful \cite{adebayo2018sanity,hooker2019benchmark}. In multi-site MRI, scanner differences are a well-known source of site effects \cite{glocker2019scanner,fortin2018harmonization,dinsdale2021unlearning}, and differences in brain-age gap between datasets can largely reflect their age distributions \cite{aguzin2026bias}.
 
-This work audits a widely used brain-age network on the public IXI dataset along all three axes. We ask:
-\begin{enumerate}
-\item \textbf{Accuracy:} how accurate is a pretrained brain-age CNN on IXI, and what does fine-tuning add?
-\item \textbf{Fairness:} once age is controlled for, do the error or the BAG differ by sex or by acquisition site, and does the model generalise to a site it never saw?
-\item \textbf{Right for the wrong reasons?} Does the model's representation encode the acquisition site, does its prediction respond to acquisition appearance when anatomy is fixed, and can the site disparity be explained by measurable acquisition properties?
-\end{enumerate}
+These concerns meet in a common situation: a brain-age model shows a disparity between sites, and the disparity is attributed to the scanner. That attribution is rarely tested. We audit a widely used network on the public IXI dataset and treat ``scanner bias'' as a hypothesis to be tested rather than assumed. Our narrative follows the evidence: (1) the model is accurate; (2) it shows a replicated site disparity that is not an artefact of age handling and exists before fine-tuning; (3) the model is sensitive to acquisition appearance; (4) but that sensitivity does not explain the disparity; (5) a disparity should therefore not be labelled scanner bias without such tests.
 
 Our contributions are:
 \begin{itemize}
-\item A reproducible, layered audit protocol for brain-age models that goes beyond accuracy (Fig.~\ref{fig:overview}), with age-adjusted group comparisons, bootstrap confidence intervals and a single use of the test set.
-\item Evidence that a fine-tuned SFCN encodes the acquisition site (91.2\% probe accuracy) and that its predictions shift by 3--4 years under an \emph{age- and sex-standardised} acquisition-appearance swap that leaves anatomy unchanged.
-\item A rule-out analysis showing that a robust 5-year site offset is \emph{not} explained by intensity profile, matched image smoothness or the representation's site signature, cautioning against attributing site disparities to ``scanner bias'' without testing.
-\item Validation of the explanations and uncertainty used in the audit: attribution maps that pass randomisation and deletion tests, and predictive uncertainty that flags an unseen site while keeping near-nominal coverage.
-\item A one-page \emph{model fairness passport} that turns the audit into actionable usage guidance, in the spirit of model cards \cite{mitchell2019modelcards}.
+\item A pre-specified, layered audit protocol (Fig.~\ref{fig:overview}) with graded verdicts based on equivalence tests, minimum detectable effects and replication, released as a reusable passport schema in the spirit of model cards \cite{mitchell2019modelcards}.
+\item A site disparity shown to be robust to eight age-handling choices, to cross-validation over all non-test subjects and to independent training runs, and present in the pretrained model before any exposure to IXI.
+\item Direct evidence of acquisition sensitivity (site decodability against a permutation null; an age- and sex-standardised intensity-swap stress test), and a systematic rule-out showing that neither acquisition properties we can measure nor recorded cohort characteristics explain the disparity.
+\item A methodological warning: concept erasure that ignores the age--site confound appears to remove the disparity by removing age information.
+\item Validated explanations and uncertainty: attribution maps tested under two deletion baselines and against Integrated Gradients, and conformal intervals with per-site (Mondrian) coverage.
 \end{itemize}
 
 \begin{figure*}[t]
 \centering
 \includegraphics[width=\textwidth]{fig1_overview.pdf}
-\caption{Overview of the audit. A UK Biobank-pretrained SFCN is fine-tuned on IXI and frozen; four audit layers (accuracy, group fairness, shortcut tests, trust checks) are then applied to held-out subjects only, and summarised as a fairness passport.}
+\caption{Overview of the audit. The fine-tuned SFCN is frozen and audited on held-out subjects; cross-validated models over all non-test subjects provide the primary estimates for group effects, and four audit layers are summarised as a protocol-based fairness passport.}
 \label{fig:overview}
 \end{figure*}
 
 %=====================================================================
 \section{Related Work}
 %=====================================================================
-\textbf{Brain-age prediction.} Early brain-age models used regression on regional features \cite{franke2019ten}. Deep 3D CNNs trained on raw images \cite{cole2017deep}, DeepBrainNet trained on 14,468 individuals \cite{bashyam2020dbn} and the lightweight SFCN trained on UK Biobank \cite{peng2021sfcn} brought errors down to a few years. Brain-age estimates regress towards the mean age, so a linear bias correction is standard \cite{le2018nonlinear,smith2019delta,delange2020correction}.
+\textbf{Brain-age prediction.} Deep 3D CNNs trained on raw images \cite{cole2017deep}, DeepBrainNet \cite{bashyam2020dbn}, the lightweight SFCN \cite{peng2021sfcn} and its multi-cohort descendants \cite{leonardsen2022pyment} predict age within a few years. Brain-age estimates regress towards the mean age, so a bias correction is standard; whether to correct the prediction or include age as a covariate remains debated \cite{le2018nonlinear,smith2019delta,delange2020correction}.
 
-\textbf{Fairness in medical imaging.} Imbalanced training data produces biased classifiers \cite{larrazabal2020gender}, and chest X-ray models underdiagnose under-served groups \cite{seyyed2021underdiagnosis}; see \cite{riccilara2022fairness} for a review. For brain age, Pi\c{c}arra and Glocker analysed race and sex bias in UK Biobank \cite{picarra2023brainage}. Group differences in performance are distinct from group information being \emph{encoded}: models encode protected characteristics even when not trained to \cite{glocker2023encoding}, which can be measured with linear probes \cite{alain2016probes}.
+\textbf{Fairness and shortcuts in medical imaging.} Imbalanced data produce biased classifiers \cite{larrazabal2020gender} and under-served groups are underdiagnosed \cite{seyyed2021underdiagnosis}; see \cite{riccilara2022fairness}. For brain age, race and sex bias was analysed in UK Biobank \cite{picarra2023brainage}, and a multi-cohort evaluation found dataset differences largely explained by age distributions, with a small ethnicity effect in some models \cite{aguzin2026bias}. Models encode protected attributes they were not trained on \cite{glocker2023encoding}, measurable with linear probes \cite{alain2016probes}; decodability does not imply use, which motivates erasure-based tests \cite{belrose2023leace}.
 
-\textbf{Site effects and harmonisation.} Multi-site imaging carries scanner signatures that models can learn \cite{glocker2019scanner}. ComBat \cite{johnson2007combat} removes additive and multiplicative site effects and is widely used for MRI-derived measures \cite{fortin2018harmonization}; adversarial unlearning removes site information during training \cite{ganin2016dann,dinsdale2021unlearning}. Intensity standardisation by histogram matching is a classical MRI technique \cite{nyul2000standardization}.
+\textbf{Site effects and harmonisation.} Scanner signatures are learnable \cite{glocker2019scanner}. ComBat \cite{johnson2007combat,fortin2018harmonization} and its nonlinear-age extension ComBat-GAM \cite{pomponio2020combatgam} remove site effects from derived measures; adversarial unlearning removes them during training \cite{ganin2016dann,dinsdale2021unlearning}; histogram matching standardises intensity \cite{nyul2000standardization}.
 
-\textbf{Faithful explanations and uncertainty.} Grad-CAM \cite{selvaraju2017gradcam} is the most common saliency method for CNNs, and HiResCAM provides faithful location-wise maps \cite{draelos2020hirescam}. Saliency maps should pass randomisation sanity checks \cite{adebayo2018sanity} and perturbation (deletion) tests \cite{samek2017evaluating,hooker2019benchmark}. Neural network confidence is often miscalibrated \cite{guo2017calibration}, so coverage of predictive ranges must be checked.
-
-Prior brain-age studies typically report accuracy, sometimes group errors, and rarely test whether a disparity is caused by acquisition. Our audit combines these strands on a single frozen model and tests the shortcut hypothesis directly.
+\textbf{Faithful explanations and uncertainty.} Grad-CAM \cite{selvaraju2017gradcam}, HiResCAM \cite{draelos2020hirescam} and Integrated Gradients \cite{sundararajan2017ig} are common attribution methods; they should pass randomisation \cite{adebayo2018sanity} and perturbation tests \cite{samek2017evaluating,hooker2019benchmark}. Network confidence is often miscalibrated \cite{guo2017calibration}; deep ensembles \cite{lakshminarayanan2017ensembles} and conformal prediction \cite{vovk2005algorithmic,angelopoulos2023conformal}, including group-conditional (Mondrian) variants, provide checked or guaranteed coverage.
 
 %=====================================================================
 \section{Data}
 %=====================================================================
-\textbf{Dataset.} IXI \cite{ixi} provides T1-weighted MRI and demographics for healthy adults scanned at three London sites: Guy's Hospital (Guys; Philips 1.5\,T), Hammersmith Hospital (HH; Philips 3\,T) and the Institute of Psychiatry (IOP; GE 1.5\,T).
-
-\textbf{Label correction.} An early version of our demographics table attached age and sex to the wrong subjects, because a row index had been used as the subject identifier. We rebuilt all labels from the official spreadsheet, joined on the IXI identifier. Two independent rebuilds by different team members agreed with the corrected labels. All results use the corrected labels.
-
-\textbf{Exclusions and splits.} We excluded 14 scans (10 without a demographic record, 2 without age, 2 with conflicting duplicates). The remaining 485 subjects were split 339/73/73 into train, validation and test sets, stratified by site (Table~\ref{tab:data}). The test set (Guys 42, HH 22, IOP 9; 43 female, 30 male) was evaluated \emph{once}, after all modelling decisions had been made on train and validation data. IOP recruited younger participants, which is one reason every comparison below adjusts for age.
+IXI \cite{ixi} provides T1-weighted MRI and demographics for healthy adults scanned at Guy's Hospital (Guys; Philips 1.5\,T), Hammersmith Hospital (HH; Philips 3\,T) and the Institute of Psychiatry (IOP; GE 1.5\,T). Labels were rebuilt from the official spreadsheet after an identifier error in an early table was found; two independent rebuilds agreed, and no result based on the erroneous labels was reported. Of 502 subjects with a scan and a demographic index entry, 17 were excluded (10 without a record, 2 without age, 2 with contradictory duplicates, and 3 with clean labels that were not part of the shared team split; the list is released). The remaining 485 were split 339/73/73 into train, validation and test, stratified by site (Table~\ref{tab:data}). IOP recruited younger participants (Fig.~\ref{fig:agedist}), so every group comparison adjusts for age, and Section~\ref{sec:agerob} tests whether that adjustment is adequate.
 
 \begin{table}[t]
 \caption{Subjects per acquisition site}
@@ -104,233 +93,224 @@ Prior brain-age studies typically report accuracy, sometimes group errors, and r
 \centering
 \begin{tabular}{lcccc}
 \toprule
-Site & Scanner & Train $n$ & Train mean age & Held-out $n$ \\
+Site & Scanner & $n$ & Mean age & Test $n$ \\
 \midrule
-Guys & Philips 1.5\,T & 192 & 48.4 & 83 \\
-HH   & Philips 3\,T   & 104 & 47.3 & 45 \\
-IOP  & GE 1.5\,T      & 43  & 40.6 & 18 \\
+Guys & Philips 1.5\,T & 275 & 50.6 & 42 \\
+HH   & Philips 3\,T   & 149 & 47.7 & 22 \\
+IOP  & GE 1.5\,T      & 61  & 42.5 & 9 \\
 \bottomrule
-\multicolumn{5}{l}{\footnotesize Held-out = validation + test (146 subjects).}
 \end{tabular}
 \end{table}
+
+\begin{figure*}[t]
+\centering
+\includegraphics[width=0.9\textwidth]{age_distribution_and_gaps.png}
+\caption{Left: age distribution by site (all 485 subjects). Middle and right: corrected brain-age gap of every held-out subject by site and by sex (bar: median).}
+\label{fig:agedist}
+\end{figure*}
 
 %=====================================================================
 \section{Methods}
 %=====================================================================
-\subsection{Preprocessing}
-Each scan underwent N4 bias-field correction \cite{tustison2010n4}, skull-stripping in native space with ANTsPyNet \cite{tustison2021antsx}, brain-to-brain affine registration to the MNI152NLin6Asym 1\,mm template from TemplateFlow \cite{ciric2022templateflow}, and a centre crop to SFCN's $160\times192\times160$ input. Quality control used Dice overlap with the template brain, centre offset, edge truncation and native brain volume. Following SFCN's reference implementation, each volume is divided by its mean over the full $182\times218\times182$ template box; normalising by the mean of the cropped volume instead makes inputs about $1.47\times$ too small and collapses the pretrained model's outputs.
+\subsection{Preprocessing and model}
+Each scan underwent N4 bias-field correction \cite{tustison2010n4}, skull-stripping with ANTsPyNet \cite{tustison2021antsx}, affine registration to the MNI152NLin6Asym 1\,mm template \cite{ciric2022templateflow}, a centre crop to $160\times192\times160$ voxels and SFCN's intensity normalisation (division by the mean over the full $182\times218\times182$ box). SFCN \cite{peng2021sfcn} has five convolution--batch-norm--max-pool--ReLU blocks and a $1\times1\times1$ block, global average pooling to 64 features and a $1\times1\times1$ convolution over one-year age bins; the prediction is the expected value of the bin distribution. We replaced the UK Biobank head (ages 42--82) with 72 bins for 18--90, warm-starting overlapping bins, and fine-tuned with Gaussian soft labels ($\sigma=2$ years) and a KL loss: the head for 5 epochs (learning rate $10^{-3}$), then the whole network with AdamW \cite{loshchilov2019adamw} (head $10^{-3}$, backbone $10^{-4}$), early stopping on validation MAE (patience 15). The checkpoint at epoch 30 was frozen. Bias correction followed \cite{cole2018mortality}: $\hat{y}=a\,y+b$ fitted on validation ($a=0.832$, $b=8.30$), corrected prediction $(\hat{y}-b)/a$.
 
-\subsection{Model and fine-tuning}
-SFCN \cite{peng2021sfcn} is a 3D CNN with five convolution--batch-norm--max-pool--ReLU blocks and a $1\times1\times1$ block, followed by global average pooling to a 64-dimensional feature vector and a $1\times1\times1$ convolution that outputs a probability $p_k$ for each one-year age bin with centre $c_k$. The prediction is the expected value $\hat{y}=\sum_k p_k c_k$. The published UK Biobank head covers ages 42--82, so we replaced it with 72 bins covering 18--90, warm-starting the bins for 42--82 from the pretrained head. Training used Gaussian soft labels ($\sigma=2$ years) and a Kullback--Leibler loss, in two stages: the head only (5 epochs, learning rate $10^{-3}$), then the whole network with AdamW \cite{loshchilov2019adamw} (head $10^{-3}$, backbone $10^{-4}$) for up to 60 epochs with early stopping on validation MAE (patience 15) and learning-rate reduction on plateau. The selected checkpoint (epoch 30) was frozen for every analysis that follows.
+\textbf{Cross-validated replication.} To estimate group effects on more than 18 held-out IOP subjects without touching the test set, the 412 train+validation subjects were split into 5 site-stratified folds; each fold was predicted by a model trained on the other four (85\% training, 15\% inner validation for early stopping and for that fold's bias correction). Full fine-tuning was infeasible on our CPU hardware, so the first three blocks were kept at the UK Biobank weights, which never saw IXI, and the remaining blocks and head were trained with the same objective and schedule. Every non-test subject thus receives an out-of-sample prediction (61 IOP). Training was repeated with \pend{2} seeds, and the fold models' average forms an ensemble for the locked test set.
 
-As a replication, SFCN and DeepBrainNet \cite{bashyam2020dbn} were also fine-tuned independently with an alternative preprocessing pipeline on the same split.
+\subsection{Analysis plan}
+Fixed before the test set was evaluated: the split, the exclusions, the bias-correction procedure, the attribution layer and method, and the regression model for group effects. Fixed before the cross-validation results were seen (and committed to the public repository with a timestamp): the equivalence margin, the graded verdict rules and the passport criteria below. The remaining analyses are tests of explanations for an effect already observed and are reported as such.
 
-\subsection{Evaluation and bias correction}
-Following \cite{cole2018mortality,delange2020correction}, we fitted $\hat{y}=a\,y+b$ on the \emph{validation} set ($a=0.832$, $b=8.30$) and corrected predictions as $(\hat{y}-b)/a$. The corrected BAG is the corrected prediction minus chronological age. We report MAE, RMSE and Pearson $r$ with 95\% percentile-bootstrap CIs (5,000 resamples) \cite{efron1993bootstrap}.
+\subsection{Group fairness and graded verdicts}
+Group effects were estimated with $\mathrm{outcome}\sim\mathrm{sex}+\mathrm{site}+\mathrm{age}$ (OLS, HC3 errors \cite{mackinnon1985hc}) for corrected BAG and absolute error, with bootstrap CIs \cite{efron1993bootstrap}. Each effect received a pre-specified verdict with margin $\pm2$ years (about half the MAE): \textsc{pass} if equivalence is shown by two one-sided tests \cite{schuirmann1987tost} (90\% CI within the margin); \textsc{inconclusive} if the 95\% CI includes zero without equivalence; \textsc{concern} if it excludes zero but the effect is within the margin or does not replicate; \textsc{fail} if it excludes zero, exceeds the margin and replicates in an independent split. We report the minimum detectable effect at 80\% power and Holm-adjusted \cite{holm1979} $p$-values across all group comparisons. Leave-one-site-out models (trained without one site) measured generalisation to an unseen site.
 
-\subsection{Fairness audit}
-On the test set we fitted ordinary least-squares models $\mathrm{BAG}\sim\mathrm{sex}+\mathrm{site}+\mathrm{age}$ and $|\mathrm{error}|\sim\mathrm{sex}+\mathrm{site}+\mathrm{age}$ with HC3 robust standard errors \cite{mackinnon1985hc}, reference levels female and Guys, and bootstrap CIs. For \emph{leave-one-site-out} (LOSO) generalisation, three further models were each trained without one site and evaluated on that site's train and validation subjects (never the test set), against seen-site validation subjects.
+\subsection{Robustness of the site effect to age}
+\label{sec:agemethods}
+The IOP-vs-Guys effect was re-estimated under: (a) no bias correction; (b) correction fitted on validation; (c) correction fitted on train; (d) age as a covariate of the raw prediction \cite{le2018nonlinear}; (e) a B-spline of age (4 df); (f) Guys and HH restricted to IOP's age range; (g) 1:1 age- and sex-matched IOP--Guys pairs (caliper 3 years); and (h) native brain volume added as a covariate, because registration removes head size from the input. We also inspected gaps of the youngest subjects, near the lower edge of the label range.
 
-\subsection{Attribution maps and their validity}
-Standard Grad-CAM \cite{selvaraju2017gradcam} produced empty maps for 20--80\% of subjects at SFCN's layers, so we used the location-wise gradient $\times$ activation summed over channels (magnitude), a HiResCAM-style map \cite{draelos2020hirescam}, at block \texttt{conv\_2} ($20\times24\times20$ cells of 8\,mm), with the predicted age as target. This choice was made before any group comparison. Maps were upsampled, masked, normalised to unit sum and summarised as the share of attribution in 59 Harvard--Oxford regions grouped into 7 coarse regions \cite{jenkinson2012fsl}; group differences on held-out subjects ($n=146$) used $\mathrm{share}\sim\mathrm{sex}+\mathrm{site}+\mathrm{age}$ with Benjamini--Hochberg FDR \cite{benjamini1995fdr}.
+\subsection{Is the offset learned?}
+The UK Biobank model never saw IXI, so its predictions for all subjects aged 42--82 (its output range) show whether the offset exists before fine-tuning. In the cross-validation runs, the gaps of training and out-of-sample IOP subjects were recorded at every epoch.
 
-We tested validity in two ways: a \emph{cascading randomisation} sanity check \cite{adebayo2018sanity}, re-initialising the layers above the target and comparing maps; and a \emph{deletion test} \cite{samek2017evaluating,hooker2019benchmark} on 60 held-out subjects, replacing the top-, bottom- or randomly-ranked 5/10/20\% of brain cells with a heavily smoothed copy of the image (Gaussian $\sigma=8$ voxels) and measuring $|\Delta\hat{y}|$. Smoothing keeps local intensity while removing anatomical detail, so every condition applies the same kind of perturbation and only its location differs.
+\subsection{Acquisition sensitivity}
+\textbf{Site probe.} A class-balanced multinomial logistic regression \cite{alain2016probes} was trained on train subjects' 64-d features with age, age$^2$ and sex regressed out and scored on held-out subjects (balanced accuracy), against a null from 30 label permutations.
 
-\subsection{Shortcut tests}
-All use the frozen model and held-out subjects; nothing is tuned on test labels.
+\textbf{Stress test.} Each held-out brain's intensity distribution was quantile-matched \cite{nyul2000standardization} to each site's reference and re-predicted. References came from train subjects and were standardised to a common age and sex mix (per-site regression of the quantile vector on age, age$^2$ and sex, evaluated at the pooled mean), because tissue contrast itself carries age information. Effects are relative to matching to the subject's own site. Contrast, noise, blur and non-uniformity were also varied singly on 40 subjects. The test was repeated with the cross-validated models.
 
-\textbf{Site probe.} A class-balanced multinomial logistic regression (regularisation by 5-fold CV on train) was trained on the train subjects' 64-d pooled features to predict site, and scored on held-out subjects with balanced accuracy \cite{alain2016probes,glocker2023encoding}. We compared demographics only, input-intensity quantiles, pretrained and fine-tuned SFCN features, each with and without age, age$^2$ and sex regressed out.
+\subsection{Explaining the disparity}
+\textbf{Image properties.} We compared native resolution and three sharpness measures (gradient, Laplacian, smoothness FWHM \cite{forman1995fwhm}) across sites, and blurred each held-out Guys and HH brain to IOP's adjusted smoothness.
 
-\textbf{Acquisition stress test.} Each held-out brain's intensity distribution was quantile-matched (101 quantiles) \cite{nyul2000standardization} to each site's reference and its age predicted again. Because IOP recruited younger people and tissue proportions change with age, the references were built from train subjects and \emph{standardised to a common age and sex mix}: per site, the quantile vector was regressed on age, age$^2$ and sex and evaluated at the pooled train mean. Effects are expressed relative to matching to the subject's \emph{own} site, so the matching operation itself is controlled for. On 40 subjects we also varied single properties: contrast ($\gamma$), noise, Gaussian blur and smooth intensity non-uniformity.
+\textbf{Removing site from the features.} Site was removed from the 64-d features, with parameters from train only, by ComBat \cite{johnson2007combat,fortin2018harmonization} (linear age, age$^2$, sex preserved), ComBat-GAM-style harmonisation \cite{pomponio2020combatgam} (spline age), and LEACE concept erasure \cite{belrose2023leace}, both plain and conditional (erasing site only from the part of the features not explained by age and sex). Age was re-predicted through the model's own head, which reproduces the model exactly on the original features.
 
-\textbf{Image sharpness and matched blur.} We read native voxel sizes from the headers and computed three sharpness measures on the model input (mean gradient magnitude, Laplacian spread and a smoothness FWHM estimate \cite{forman1995fwhm}), compared across sites adjusting for age and sex. Each held-out Guys and HH brain was then blurred by exactly the amount that raises its FWHM to IOP's adjusted level, and re-predicted.
+\textbf{Cohort characteristics.} IXI records education, ethnicity, height and weight. We compared sites on university degree, ethnicity and BMI and added them as covariates to the site model, using the zero-shot, main and cross-validated predictions. We also report the ethnicity effect itself.
 
-\textbf{Feature harmonisation.} The 64-d features were harmonised with ComBat (location/scale) \cite{johnson2007combat,fortin2018harmonization}, preserving age, age$^2$ and sex, with parameters estimated on train only. Age was re-predicted through the model's unchanged head; applying the head to the original features reproduces the model's outputs exactly.
+\subsection{Attribution and its validity}
+Standard Grad-CAM \cite{selvaraju2017gradcam} produced empty maps for many subjects, so we used location-wise gradient $\times$ activation (HiResCAM-style \cite{draelos2020hirescam}) at block \texttt{conv\_2} (8\,mm cells), chosen before any group comparison. Maps were summarised by Harvard--Oxford region \cite{jenkinson2012fsl}, both as shares and as density (share divided by the region's share of brain volume), with FDR correction \cite{benjamini1995fdr}. Validity: a cascading randomisation check \cite{adebayo2018sanity}; a deletion test \cite{samek2017evaluating,hooker2019benchmark} on 60 held-out subjects removing top-, bottom- or randomly-ranked 5/10\% of cells with two baselines (heavy smoothing, and the brain's mean intensity, which involves no blur), reporting signed and absolute changes; and agreement with Integrated Gradients \cite{sundararajan2017ig} (zero baseline, 16 steps) on 20 subjects.
 
-\subsection{Predictive uncertainty}
-Uncertainty was the standard deviation of the model's predicted age distribution, and coverage the fraction of subjects whose true age falls in the distribution's 5th--95th percentile range. We computed both for the main model and for the LOSO models without IOP and without HH.
+\subsection{Uncertainty}
+We assessed the model's own predictive distribution (coverage and width of its central 50/80/90/95\% ranges, per site), split-conformal intervals from out-of-fold absolute residuals \cite{angelopoulos2023conformal}, pooled and per site (Mondrian \cite{vovk2005algorithmic}), and the spread of the seed ensemble \cite{lakshminarayanan2017ensembles}. Training with $\sigma=2$ soft labels sets a floor of about 2 years on the model's own spread.
 
 %=====================================================================
 \section{Results}
 %=====================================================================
 \subsection{Accuracy}
-Without fine-tuning, the UK Biobank SFCN was strongly age-related on validation ($r=0.910$), but its MAE was 10.21 years \ci{8.19}{12.29}: its head cannot predict outside 42--82, so everyone under about 45 was predicted to be 51--61. Fine-tuning reduced validation MAE to 3.90 ($r=0.961$). On the test set, evaluated once, the model reached an MAE of \textbf{3.71} years \ci{3.10}{4.38} and $r=0.966$ \ci{0.952}{0.978} (Table~\ref{tab:acc}, Fig.~\ref{fig:scatter}). Bias correction removed most of the age dependence of the BAG (correlation $-0.49\rightarrow+0.17$). The independent replication reached test MAE 4.07 (SFCN) and 4.53 (DeepBrainNet); the two SFCN fine-tunes were equivalent on validation (3.90 vs 3.88).
+The UK Biobank SFCN without fine-tuning had a validation MAE of 10.21 years ($r=0.910$), because its head cannot predict outside 42--82. Fine-tuning reduced it to 3.90. On the test set, evaluated once, the MAE was \textbf{3.71} years \ci{3.10}{4.38} and $r=0.966$ (Table~\ref{tab:acc}). The cross-validated models reached an out-of-sample MAE of \pend{CV MAE} over all 412 non-test subjects, and their ensemble \pend{ensemble test MAE} on the test set. An independently fine-tuned SFCN and DeepBrainNet reached test MAE 4.07 and 4.53.
 
 \begin{table}[t]
-\caption{Test-set accuracy (95\% bootstrap CI)}
+\caption{Accuracy (95\% bootstrap CI)}
 \label{tab:acc}
-\centering
-\begin{tabular}{lcc}
-\toprule
-Metric & Raw & Bias-corrected \\
-\midrule
-MAE (years)  & \textbf{3.71} \ci{3.10}{4.38} & 3.89 \ci{3.20}{4.61} \\
-RMSE (years) & 4.66 \ci{3.93}{5.40} & 4.97 \\
-Pearson $r$  & \textbf{0.966} \ci{0.952}{0.978} & 0.966 \\
-$r$(age, BAG) & $-0.49$ & $+0.17$ \\
-\midrule
-Zero-shot SFCN, val. MAE & 10.21 & -- \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\begin{figure}[t]
-\centering
-\includegraphics[width=\columnwidth]{test_scatter.png}
-\caption{Fine-tuned SFCN on the test set, raw (left) and bias-corrected (right), coloured by acquisition site.}
-\label{fig:scatter}
-\end{figure}
-
-\subsection{Group fairness: sex and acquisition site}
-Table~\ref{tab:fair} and Fig.~\ref{fig:fair} show the age-adjusted test-set differences. There is \textbf{no detectable sex difference} in BAG or error, with intervals narrow enough to exclude differences larger than about 2--3 years. In contrast, IOP scans receive a corrected BAG \textbf{5.06 years lower} than Guys scans ($p=0.012$); 8 of the 9 IOP test subjects have a negative gap, and leaving out each IOP subject in turn gives offsets between $-4.18$ and $-5.93$. No group difference in absolute error has a CI excluding zero.
-
-The IOP offset is absent in the training subjects, which the model fits closely ($-0.97$ \ci{-3.09}{+1.15}), and appears independently in validation ($-4.08$ \ci{-7.31}{-0.85}) and test ($-5.06$): it is a failure to generalise to \emph{new} IOP individuals, not a chance finding in one split. LOSO confirms this: a model never trained on IOP is \textbf{3.30 years} \ci{1.62}{4.93} less accurate there (MAE 6.80 vs 3.59), whereas a model never trained on HH generalises (+0.25 \ci{-0.88}{1.36}).
-
-\begin{table}[t]
-\caption{Age-adjusted group differences, test set (95\% CI)}
-\label{tab:fair}
 \centering
 \setlength{\tabcolsep}{4pt}
 \begin{tabular}{lcc}
 \toprule
-Comparison & Corrected BAG (yrs) & $|$Error$|$ (yrs) \\
+Model and data & MAE (years) & $r$ \\
 \midrule
-Male vs female & $-0.59$ \ci{-2.67}{+1.64} & $-0.64$ \ci{-1.90}{+0.59} \\
-HH vs Guys     & $+1.06$ \ci{-1.44}{+3.53} & $+0.19$ \ci{-1.07}{+1.47} \\
-IOP vs Guys    & $\mathbf{-5.06}$ \ci{-8.66}{-1.34} & $+1.92$ \ci{-1.36}{+5.14} \\
+Main model, test (raw) & \textbf{3.71} \ci{3.10}{4.38} & 0.966 \\
+Main model, test (bias-corrected) & 3.89 \ci{3.20}{4.61} & 0.966 \\
+CV models, 412 out-of-sample & \pend{} & \pend{} \\
+CV ensemble, test & \pend{} & \pend{} \\
+Zero-shot SFCN, validation & 10.21 & 0.910 \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-\begin{figure}[t]
-\centering
-\includegraphics[width=\columnwidth]{fairness_effects.png}
-\caption{Age-adjusted group differences in corrected BAG (left) and absolute error (right) on the test set, with 95\% bootstrap CIs.}
-\label{fig:fair}
-\end{figure}
-
-\subsection{Where does the model look, and can we trust it?}
-Attribution concentrates on the deep grey matter around the lateral ventricles (thalamus, caudate, putamen), the periventricular white matter and the cerebellum (Fig.~\ref{fig:attr}), structures known to change with age. Re-initialising the top layers changes the maps almost completely (median Spearman $\rho=0.13$), so the maps depend on what the model learned. In the deletion test (Table~\ref{tab:del}), removing the top-ranked 5\% of cells changes the prediction by 4.83 years, against 1.04 for random and 0.46 for bottom-ranked cells; top beats random by +3.79 years \ci{3.03}{4.66} in 93\% of subjects (Wilcoxon $p=5\times10^{-11}$), and the ordering holds at every fraction.
-
-After FDR correction, no region differs by sex. Attribution patterns differ between acquisition sites: relative to Guys, HH and IOP place less attribution on deep grey matter ($-1.14$ and $-1.29$ percentage points) and more on the cerebellum and unlabelled tissue.
-
-\begin{figure}[t]
-\centering
-\includegraphics[width=\columnwidth]{attribution_mean_map.png}\\[2pt]
-\includegraphics[width=0.82\columnwidth]{deletion_test.png}
-\caption{Top: mean attribution map over held-out subjects. Bottom: deletion test, $|\Delta$ predicted age$|$ when top-, randomly- or bottom-ranked regions are smoothed away.}
-\label{fig:attr}
-\end{figure}
+\subsection{Group fairness}
+Table~\ref{tab:verdicts} lists every group effect with its verdict. On the test set alone, absolute error is \emph{equivalent} between sexes and between HH and Guys (\textsc{pass}), whereas the sex difference in BAG ($-0.59$, minimum detectable effect 3.1 years) is \textsc{inconclusive}: 73 test subjects cannot show equivalence. IOP scans receive a BAG 5.06 years lower than Guys \ci{-8.66}{-1.34}, replicated in validation ($-4.08$), giving \textsc{fail}. With all 412 cross-validated predictions, \pend{CV verdicts for sex and site}. A model never trained on IOP was 3.30 years \ci{1.62}{4.93} less accurate there, whereas one never trained on HH generalised (+0.25).
 
 \begin{table}[t]
-\caption{Deletion test: $|\Delta$ predicted age$|$ (years), 60 subjects}
-\label{tab:del}
+\caption{Group effects (years) and pre-specified verdicts}
+\label{tab:verdicts}
 \centering
-\begin{tabular}{lccc}
+\setlength{\tabcolsep}{2.5pt}
+\begin{tabular}{llccl}
 \toprule
-Fraction removed & Top-ranked & Random & Bottom-ranked \\
+Effect & Data & Estimate \,[95\% CI] & MDE & Verdict \\
 \midrule
-5\%  & \textbf{4.83} & 1.04 & 0.46 \\
-10\% & \textbf{6.05} & 1.89 & 0.70 \\
-20\% & \textbf{8.71} & 4.17 & 1.21 \\
+Sex, BAG & test & $-0.59$ \ci{-2.79}{1.61} & 3.1 & \textsc{inconcl.} \\
+Sex, error & test & $-0.64$ \ci{-1.94}{0.66} & 1.9 & \textsc{pass} \\
+HH, BAG & test & $+1.06$ \ci{-1.48}{3.60} & 3.6 & \textsc{inconcl.} \\
+HH, error & test & $+0.19$ \ci{-1.09}{1.48} & 1.8 & \textsc{pass} \\
+IOP, BAG & test & $-5.06$ \ci{-8.99}{-1.13} & 5.6 & \textsc{fail} \\
+IOP, error & test & $+1.92$ \ci{-1.50}{5.33} & 4.9 & \textsc{inconcl.} \\
+\midrule
+Sex, BAG & CV & \pend{} & \pend{} & \pend{} \\
+Sex, error & CV & \pend{} & \pend{} & \pend{} \\
+HH, BAG & CV & \pend{} & \pend{} & \pend{} \\
+IOP, BAG & CV & \pend{} & \pend{} & \pend{} \\
+IOP, error & CV & \pend{} & \pend{} & \pend{} \\
 \bottomrule
+\multicolumn{5}{l}{\footnotesize HC3 normal CIs; MDE: minimum detectable effect, 80\% power.}
 \end{tabular}
 \end{table}
 
-\subsection{Is the model right for the wrong reasons?}
-\textbf{The representation encodes the acquisition site.} A linear probe on the 64-d features identifies the site of held-out scans with 93.5\% balanced accuracy, and \textbf{91.2\%} \ci{86.6}{95.2} after age and sex are regressed out, against 40.8\% from demographics alone (Table~\ref{tab:probe}, Fig.~\ref{fig:probe}). All 18 held-out IOP scans were identified and no other scan was labelled IOP. The signature is already present in the pretrained network (92.8\%), so it reflects image appearance that survives preprocessing rather than something learned from IXI. This shows that site information is \emph{present}; the next test asks whether the prediction \emph{responds} to it.
+\subsection{The IOP offset is not an artefact of age handling}
+\label{sec:agerob}
+Across all eight age-handling choices, the held-out IOP offset ranged from $-3.11$ to $-4.53$ years, with every CI excluding zero (Fig.~\ref{fig:agerob}); on the test set alone it ranged from $-4.21$ to $-5.24$. It persisted in age-matched pairs ($-3.11$ \ci{-5.67}{-0.33}), with a spline for age ($-3.98$) and with no correction at all ($-3.77$). Native brain volume did not differ between IOP and Guys after age and sex adjustment ($-16$\,ml, $p=0.38$) and did not change the offset ($-4.47$). The offset is not at the edge of the label range: held-out IOP subjects under 30 had a mean gap of $+0.5$ years, those over 30 of $-5.6$ years. In the cross-validated predictions the offset was \pend{CV range across the eight choices}.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\columnwidth]{age_robustness.png}
+\caption{Left: held-out corrected brain-age gap by age and site (lines: running means). Right: the IOP-vs-Guys offset under eight age-handling choices (95\% CI).}
+\label{fig:agerob}
+\end{figure}
+
+\subsection{The offset exists before fine-tuning}
+The UK Biobank model, which never saw an IXI scan, already predicts IOP brains \textbf{3.34 years younger} than Guys brains of the same age and sex \ci{-4.71}{-1.91} ($p=5\times10^{-6}$, 241 subjects aged 42--82, 19 IOP). Memorisation of IOP training subjects therefore cannot be its cause. During cross-validated training, \pend{training-dynamics result: train-IOP gap vs out-of-sample IOP gap across epochs}.
+
+\subsection{The model is sensitive to acquisition appearance}
+\textbf{Site is encoded.} The probe identified the site of held-out scans with \textbf{91.2\%} \ci{86.6}{95.2} balanced accuracy after removing age and sex, against a permutation null with mean 34\% and 95th percentile 50\% (Table~\ref{tab:probe}). This is expected: site is decodable with 99.6\% from input intensity quantiles alone and with 92.8\% from the pretrained network, so the features inherit an input-level signature; the question is whether the prediction uses it.
 
 \begin{table}[t]
-\caption{Site probe on held-out subjects (chance 33\%)}
+\caption{Site probe on held-out subjects (balanced accuracy, \%)}
 \label{tab:probe}
 \centering
 \begin{tabular}{lc}
 \toprule
-Features & Balanced accuracy (\%) \\
+Features & Accuracy \\
 \midrule
-Age and sex only & 40.8 \ci{31.2}{50.9} \\
-Input intensity quantiles & 99.6 \ci{98.7}{100} \\
-Pretrained SFCN (never saw IXI) & 92.8 \ci{87.2}{96.9} \\
-Fine-tuned SFCN & 93.5 \ci{88.1}{97.7} \\
-Fine-tuned SFCN, age/sex removed & \textbf{91.2} \ci{86.6}{95.2} \\
-After ComBat harmonisation & 36.3 \\
+Age and sex only & 40.8 \\
+Permutation null (mean / 95th pct.) & 34 / 50 \\
+Input intensity quantiles & 99.6 \\
+Pretrained SFCN (never saw IXI) & 92.8 \\
+Fine-tuned SFCN, age/sex removed & \textbf{91.2} \\
+Cross-validated models (within fold) & \pend{} \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-\begin{figure}[t]
-\centering
-\includegraphics[width=\columnwidth]{site_probe.png}
-\caption{Site probe: balanced accuracy by feature set (left) and confusion matrix for fine-tuned features with age and sex removed (right).}
-\label{fig:probe}
-\end{figure}
-
-\textbf{Predicted age responds to acquisition appearance.} Changing only the intensity appearance of the same brains shifts predicted age substantially (Fig.~\ref{fig:stress}). Relative to the own-site match, HH brains given an IOP appearance became \textbf{3.92 years younger} \ci{-4.47}{-3.38} (45 of 45 subjects), and IOP brains given an HH appearance became \textbf{3.14 years older} \ci{2.44}{3.97} (18 of 18). Among single properties, strong blur ($\sigma=1.5$ voxels) lowered predicted age by 3.17 years \ci{1.24}{5.11}, contrast changes moved it by 0.4--0.9 years and noise and non-uniformity by less. The same anatomy therefore receives a different age depending on acquisition appearance.
+\textbf{Appearance moves the prediction.} Relative to matching to their own site, HH brains given IOP's age- and sex-standardised appearance became \textbf{3.92 years younger} \ci{-4.47}{-3.38}, all 45 of them, and IOP brains given HH's appearance \textbf{3.14 years older} (18 of 18; Fig.~\ref{fig:stress}). Between Guys and IOP the effect was small ($+0.11$ and $+0.90$), and Guys brains given HH's appearance became 3.32 years older. Strong blur ($\sigma=1.5$ voxels) lowered predictions by 3.17 years. With the cross-validated models, \pend{CV stress-test replication}.
 
 \begin{figure*}[t]
 \centering
 \includegraphics[width=0.85\textwidth]{stress_test.png}
-\caption{Acquisition stress test. Left: change in predicted age when each site's held-out brains are given each site's age- and sex-standardised intensity appearance (relative to own-site matching). Right: single acquisition perturbations.}
+\caption{Acquisition stress test. Left: change in predicted age when each site's held-out brains are given each site's age- and sex-standardised intensity appearance, relative to matching to their own site (share of subjects changing in the majority direction). Right: single acquisition changes on 40 subjects.}
 \label{fig:stress}
 \end{figure*}
 
-\textbf{What the IOP offset is not.} We tested three acquisition explanations at IOP's measured levels (Table~\ref{tab:ruleout}). (i) \emph{Global intensity:} after age/sex standardisation, swapping between the Guys and IOP appearances moved predicted age by at most about 1 year; without standardisation the effect looked larger ($-0.60/+1.60$) because IOP's younger recruitment had leaked into its reference. (ii) \emph{Smoothness:} native resolution is identical across sites ($0.94\times0.94\times1.2$\,mm), yet IOP inputs are markedly smoother (FWHM +0.87\,mm, +2.38 SD vs Guys, age/sex-adjusted). Blurring Guys and HH brains to IOP's smoothness did \emph{not} lower predicted age. (iii) \emph{Site signature:} ComBat removed the representation's site signature (probe $91.2\rightarrow36.3\%$) at no cost in accuracy (held-out MAE $3.81\rightarrow3.90$), but the IOP offset largely persisted, $-4.53\rightarrow-3.95$ years (Fig.~\ref{fig:combat}).
+\subsection{But acquisition sensitivity does not explain the offset}
+Table~\ref{tab:ruleout} collects every explanation tested. \emph{Intensity:} swapping between the Guys and IOP appearances moves predictions by at most about 1 year; without age standardisation of the references this effect was overstated ($-0.60/+1.60$), because IOP's younger recruitment leaked into its reference. \emph{Smoothness:} native resolution is identical across sites, yet IOP inputs are smoother (FWHM $+0.87$\,mm); blurring Guys and HH brains to IOP's smoothness did not lower their predictions. \emph{Removing site from the features:} ComBat erased the site signature (probe 36.3\%) with unchanged accuracy, but the offset remained ($-3.95$); with spline age it remained ($-6.80$); with age-conditional LEACE it remained ($-4.46$). Only \emph{plain} LEACE removed it ($+0.40$), and only because, IOP's training subjects being younger, it also erased age information correlated with site; the conditional version, which preserves age, does not. \emph{Cohort:} IOP did not differ from Guys in university degree (68\% vs 56\%; adjusted $p=0.56$), ethnicity ($p=0.64$) or BMI ($p=0.49$), and adjusting for all three left the offset unchanged in the zero-shot ($-2.80$ vs $-2.74$) and main models ($-5.26$ vs $-5.13$)\pend{, and in CV}.
 
 \begin{table}[t]
-\caption{Rule-out tests for the IOP offset (years, 95\% CI)}
+\caption{Explanations tested for the IOP offset (years)}
 \label{tab:ruleout}
 \centering
 \setlength{\tabcolsep}{3pt}
 \begin{tabular}{lc}
 \toprule
-Test at IOP's measured level & Effect \\
+Test (held-out unless noted) & IOP offset \\
 \midrule
-Guys $\rightarrow$ IOP intensity look & $+0.11$ \ci{-0.18}{+0.39} \\
-IOP $\rightarrow$ Guys intensity look & $+0.90$ \ci{+0.17}{+1.70} \\
-Guys blurred to IOP smoothness & $+0.93$ \ci{+0.60}{+1.28} \\
-HH blurred to IOP smoothness & $+0.01$ \ci{-0.32}{+0.36} \\
-IOP offset before ComBat & $-4.53$ \ci{-7.04}{-2.01} \\
-IOP offset after ComBat & $-3.95$ \ci{-6.40}{-1.37} \\
+Reference: corrected BAG, held-out & $-4.53$ \ci{-7.04}{-2.01} \\
+Guys$\rightarrow$IOP / IOP$\rightarrow$Guys appearance swap & $+0.11$ / $+0.90$ \\
+Guys / HH blurred to IOP smoothness & $+0.93$ / $+0.01$ \\
++ native brain volume & $-4.47$ \ci{-6.86}{-1.98} \\
++ degree, BMI, ethnicity & $-5.26$ \ci{-7.65}{-2.86} \\
+ComBat (linear age) & $-3.95$ \ci{-6.39}{-1.52} \\
+ComBat with spline age & $-6.80$ \ci{-10.11}{-3.49} \\
+LEACE, age-conditional & $-4.46$ \ci{-7.20}{-1.73} \\
+LEACE, plain (removes age information) & $+0.40$ \ci{-3.01}{3.82} \\
+Zero-shot model, before fine-tuning$^{*}$ & $-3.34$ \ci{-4.71}{-1.91} \\
 \bottomrule
-\multicolumn{2}{l}{\footnotesize None reproduces a 5-year younger prediction.}
+\multicolumn{2}{l}{\footnotesize $^*$Raw prediction, age-adjusted, all subjects aged 42--82.}
 \end{tabular}
 \end{table}
 
 \begin{figure*}[t]
 \centering
 \includegraphics[width=0.95\textwidth]{harmonisation.png}
-\caption{ComBat feature harmonisation: the site fingerprint is removed (left), accuracy is unchanged (right), but most of the IOP offset remains (middle).}
+\caption{ComBat harmonisation of the features: the site fingerprint is removed (left) and accuracy is unchanged (right), but the IOP offset remains (middle).}
 \label{fig:combat}
 \end{figure*}
 
-\subsection{Does the model know when it is unsure?}
-The model's predictive spread was larger for IOP (8.06 years vs 5.66 Guys and 6.39 HH; adjusted +2.48 \ci{1.30}{3.65}), and its 90\% ranges contained the true age for 88\% of held-out subjects. The model never trained on IOP was twice as uncertain there (12.46 vs 6.13; +5.32 \ci{4.65}{5.99}) yet kept 92\% coverage despite an MAE of 6.80: it is less accurate but signals it, rather than being confidently wrong (Fig.~\ref{fig:unc}). For HH, which LOSO generalises to, uncertainty barely rose (+0.79). Per subject, uncertainty tracked error only weakly (Spearman 0.16), so it is a group-level warning, not a per-scan error detector.
+\subsection{Where the model looks, and whether to trust it}
+Attribution concentrates on deep grey matter around the ventricles, periventricular white matter and the cerebellum; normalised by volume, deep grey matter receives 3.2 times its volume share (Fig.~\ref{fig:attr}). The maps depend on the learned weights (randomisation $\rho=0.13$). Removing the top-ranked 5\% of cells changed predictions far more than random cells under both baselines (\pend{smooth and mean baseline numbers, signed and absolute}), and Integrated Gradients agreed with the maps (\pend{median Spearman, top-10\% overlap}). No region differed by sex after FDR correction. By site, HH and IOP place 13--16\% less attribution density on deep grey matter and 12--15\% less on the hippocampus and amygdala than Guys ($q<0.001$); these are relative differences in density, not artefacts of region size.
 
-\begin{figure*}[t]
+\begin{figure}[t]
 \centering
-\includegraphics[width=0.95\textwidth]{uncertainty.png}
-\caption{Predictive uncertainty. Left: uncertainty against absolute error. Middle: coverage of the model's own 90\% range. Right: mean uncertainty by site for the main model and the leave-one-site-out models.}
-\label{fig:unc}
-\end{figure*}
+\includegraphics[width=\columnwidth]{attribution_mean_map.png}\\[2pt]
+\includegraphics[width=\columnwidth]{attribution_density.png}
+\caption{Top: mean attribution over held-out subjects. Bottom: attribution density (share of attribution divided by share of brain volume) by region and site.}
+\label{fig:attr}
+\end{figure}
+
+\subsection{Uncertainty}
+The model's own spread was larger for IOP (8.06 vs 5.66 years for Guys) and doubled when IOP was unseen (12.46 vs 6.13) with 92\% coverage, so the model signals unfamiliar data. Out of fold, the model's own 90\% range covered \pend{per-site coverage}; pooled conformal intervals \pend{}; per-site conformal intervals \pend{}. Per subject, uncertainty tracked error only weakly (Spearman 0.16).
 
 \subsection{Model fairness passport}
-Table~\ref{tab:passport} condenses the audit into six verdicts. The full one-page passport, with evidence and usage guidance (suitable for single-site research; not for clinical use or uncorrected cross-scanner comparison), is released with the code.
+Table~\ref{tab:passport} applies the pre-specified criteria. The full passport, its machine-readable criteria and the script that generates it are released.
 
 \begin{table}[t]
-\caption{Model fairness passport: summary verdicts}
+\caption{Model fairness passport (pre-specified criteria)}
 \label{tab:passport}
 \centering
 \setlength{\tabcolsep}{3pt}
-\begin{tabular}{llp{3.6cm}}
+\begin{tabular}{llp{3.5cm}}
 \toprule
 Check & Verdict & Evidence \\
 \midrule
-Accuracy & \textcolor{green!45!black}{\textbf{PASS}} & MAE 3.71, $r$ 0.966 \\
-Fair by sex & \textcolor{green!45!black}{\textbf{PASS}} & $-0.59$ yrs, CI spans 0 \\
-Fair by site & \textcolor{red!70!black}{\textbf{FAIL}} & IOP $-5.06$ yrs, replicated \\
-Scanner invariance & \textcolor{red!70!black}{\textbf{FAIL}} & site probe 91\%; look shifts 3--4 yrs \\
-Faithful explanations & \textcolor{green!45!black}{\textbf{PASS}} & $\rho$ 0.13; deletion 4.83 vs 1.04 \\
-Honest uncertainty & \textcolor{green!45!black}{\textbf{PASS}} & doubles when unseen; 92\% coverage \\
+Accuracy & \textsc{pass} & MAE 3.71, $r$ 0.966 \\
+Fairness by sex & \pend{} & error equivalent; gap \pend{} \\
+Fairness by site & \textsc{fail} & IOP $-4$ to $-5$ yrs, replicated, robust to age \\
+Scanner invariance & \textsc{fail} & HH$\leftrightarrow$IOP appearance shifts 3--4 yrs \\
+Faithful explanations & \pend{} & randomisation, deletion (2 baselines), IG \\
+Honest uncertainty & \pend{} & per-site coverage \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -338,33 +318,29 @@ Honest uncertainty & \textcolor{green!45!black}{\textbf{PASS}} & doubles when un
 %=====================================================================
 \section{Discussion}
 %=====================================================================
-\textbf{Accurate and fair across sex.} The fine-tuned SFCN predicts age on IXI with an error under 4 years, and we found no sex difference in BAG, error or attribution.
+\textbf{A replicated disparity that is not an age artefact.} IOP's lower brain-age gap survives every age-handling choice we could construct, appears in independent splits and in cross-validation, and is present before fine-tuning. The usual first explanation of site differences in brain age, different age distributions \cite{aguzin2026bias}, does not account for it.
 
-\textbf{A robust acquisition-site effect.} IOP stands out in every analysis: its BAG is about 5 years lower in two independent splits, it is the only site a model cannot generalise to unseen, it is the most distinct site in the representation, and the model is most uncertain about it. These are acquisition-site effects in the descriptive sense; because site is confounded with each site's recruited population in IXI, this design cannot attribute them to the scanner rather than the cohort.
+\textbf{Sensitive to acquisition, but the sensitivity is not the explanation.} The model is not acquisition-invariant: an unchanged HH brain given IOP's appearance loses almost four years. Yet the explanations we can measure---intensity profile, smoothness, head size, recorded cohort characteristics, and the site signature in the features---each leave the IOP offset in place. Two methodological lessons follow. First, references for intensity and erasure must be conditioned on age, because tissue contrast and the site--age confound carry age information: unconditioned versions overstated the intensity effect and made the offset seem to vanish. Second, removing a site signature is not the same as removing a site disparity. A study that had stopped at the stress test, or at plain erasure, would have reported ``scanner bias''; the evidence here does not support that label.
 
-\textbf{Partly right for the wrong reasons.} The representation identifies the site at 91\% accuracy even after removing age and sex and before fine-tuning, and the prediction moves by 3--4 years when only a scan's intensity appearance changes. The model is therefore not acquisition-invariant: an unchanged brain could receive a different brain age on a different scanner, which matters for any comparison of BAG across sites.
+\textbf{What remains.} The offset could stem from acquisition properties not modelled here (e.g., spatially varying contrast or vendor-specific reconstruction) or from cohort characteristics IXI does not record. Within IXI, site and cohort are confounded, so these cannot be separated; travelling-subject data would.
 
-\textbf{But the IOP offset is not a simple scanner artefact.} The obvious acquisition explanations fail at IOP's measured levels: the global intensity profile accounts for about 1 year, matched smoothness for none, and removing the site signature leaves most of the offset. Combined with the offset appearing only for new IOP individuals, this points either to acquisition properties not modelled here (e.g., the spatial pattern of tissue contrast or vendor-specific reconstruction) or to genuine cohort differences. Two methodological lessons follow: an intensity reference that is not standardised for recruitment age overstated the intensity effect, and a harmonisation method that erases a site signature need not remove a site disparity. Reporting a site disparity as ``scanner bias'' without such tests would have been wrong here.
+\textbf{Limitations.} IOP contributes 61 subjects in total. The cross-validated models fine-tune only the upper blocks, a lighter recipe than the main model. Quantile matching changes only the global intensity distribution, and Gaussian blur did not reproduce IOP's full sharpness profile. Attribution has 8\,mm resolution, and deletion tests are themselves affected by distribution shift. We did not evaluate a classical feature-based baseline or a second dataset. Participants are healthy volunteers; no clinical conclusion follows.
 
-\textbf{The model flags the problem itself.} Elevated group-level uncertainty on a new site, with near-nominal coverage, could serve as a warning that BAGs there should not be compared directly with other sites.
-
-\textbf{Limitations.} Subgroups are small (9 IOP test and 18 held-out subjects), although the offset replicated across splits. We used a single seed and split, so CIs reflect subject sampling, not training randomness. Site is confounded with cohort in IXI. Quantile matching changes only the global intensity distribution, and Gaussian blur did not reproduce IOP's full sharpness profile. ComBat was applied to pooled features without retraining the head; image-level harmonisation or adversarial training \cite{dinsdale2021unlearning} may behave differently. The attribution resolution is 8\,mm, and deletion tests are themselves affected by distribution shift. The uncertainty is the softmax spread of a soft-label model, not a calibrated interval \cite{guo2017calibration}. Participants are healthy volunteers, and no clinical conclusion follows.
-
-\textbf{Future work.} Travelling-subject data (the same people scanned at several sites) would separate scanner from cohort; further directions are site-adversarial fine-tuning, multiple seeds and splits, and extending the passport to other datasets and models.
+\textbf{Future work.} Travelling-subject datasets, a FreeSurfer-feature baseline (if it shows the same offset, the cause lies in the images or cohort rather than a CNN shortcut), site-adversarial fine-tuning \cite{dinsdale2021unlearning}, and passports for further models and datasets.
 
 %=====================================================================
 \section{Conclusion}
 %=====================================================================
-A fine-tuned SFCN brain-age model is accurate on IXI and shows no sex disparity, but it is not acquisition-invariant: it carries a strong site signature, its predictions shift with acquisition appearance alone, and one site shows a robust 5-year offset and poor generalisation when unseen. That offset is not explained by intensity, smoothness or the representation's site signature, and its cause cannot be determined from IXI. Its explanations are faithful and its uncertainty rises where it is least reliable. Auditing beyond accuracy changed the answer to ``is this model good?'': it is accurate, but its brain-age gaps should not be compared across acquisition sites without site-aware validation.
+A fine-tuned SFCN is accurate on IXI and its errors are equivalent between sexes, but it shows a replicated 4--5 year brain-age offset at one site. The offset is robust to how age is handled and exists before fine-tuning. The model is clearly sensitive to acquisition appearance, yet neither that sensitivity nor any measured acquisition or cohort property explains the offset. Site disparities in brain age should be tested, not labelled: a protocol of age-robust estimates, stress tests, age-conditional erasure and graded verdicts shows what can and cannot be concluded.
 
 \section*{Code and Data Availability}
-All code, including preprocessing, training, every analysis, an interactive results website, a live browser demo and the fairness passport, is available at \url{https://github.com/Jaaiwanth/brain-age-fairness-xai}. IXI is publicly available under CC BY-SA 3.0 \cite{ixi}.
+Code, the split and exclusion lists, cross-validation folds, environment, passport criteria and generator, an interactive website and a live demo are at \url{https://github.com/Jaaiwanth/brain-age-fairness-xai}. IXI is available under CC BY-SA 3.0 \cite{ixi}.
 
 \section*{Author Contributions}
-Adharshan N and Jaaiwanth K contributed equally. Both authors jointly designed the study, built and verified the corrected labels, developed the preprocessing and fine-tuning pipelines (including the independent SFCN and DeepBrainNet replication), performed the fairness, attribution, shortcut and uncertainty analyses, built the website, demo and passport, and wrote the manuscript. Shridevi S supervised the project and reviewed the manuscript.
+Adharshan N and Jaaiwanth K contributed equally: both designed the study, verified the labels, built the preprocessing and fine-tuning pipelines (including the independent SFCN and DeepBrainNet replication), performed the analyses, built the website, demo and passport, and wrote the manuscript. Shridevi S supervised the project and reviewed the manuscript.
 
 \section*{Acknowledgment}
-We thank the IXI project for making the data publicly available, and the authors of SFCN for releasing their pretrained weights.
+We thank the IXI project for the data and the SFCN authors for releasing their pretrained weights.
 
 \bibliographystyle{IEEEtran}
 \bibliography{refs}

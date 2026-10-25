@@ -122,7 +122,12 @@ MATH = [(r"\sum_k p_k c_k", "Σₖ pₖcₖ"), (r"\hat{y}", "ŷ"), (r"\Delta", "
         (r"\cdot", "·")]
 
 
+SUP = str.maketrans("0123456789-+", "⁰¹²³⁴⁵⁶⁷⁸⁹⁻⁺")
+
+
 def math(s):
+    s = s.replace(r"\pm", "±")
+    s = re.sub(r"\^\{([-+]?\d+)\}", lambda m: m.group(1).translate(SUP), s)
     bold = s.startswith(r"\mathbf{")
     if bold:
         s = s[len(r"\mathbf{"):-1]
@@ -133,6 +138,9 @@ def math(s):
 
 
 def clean(s):
+    s = re.sub(r"\\label\{[^}]*\}", "", s)
+    s = re.sub(r"\\textsc\{([^}]*)\}", lambda m: m.group(1).upper(), s)
+    s = re.sub(r"\\pend\{([^}]*)\}", lambda m: "[" + (m.group(1) or "pending") + "]", s)
     s = re.sub(r"\\ci\{([^}]*)\}\{([^}]*)\}", lambda m: "[" + m.group(1).replace("-", "−") + ", " + m.group(2).replace("-", "−") + "]", s)
     s = s.replace("~", " ").replace("\\%", "%").replace("---", "—").replace("--", "–")
     s = s.replace("``", "“").replace("''", "”").replace("\\&", "&").replace("\\_", "_")
@@ -234,6 +242,14 @@ def borders(table, rows_with_top, n_rows):
 
 body = TEX[TEX.index(r"\end{IEEEkeywords}") + len(r"\end{IEEEkeywords}"):TEX.index(r"\bibliographystyle")]
 LABELS, nfig, ntab = {}, 0, 0
+_ns = _nsub = 0
+for m in re.finditer(r"\\(section|subsection)\{[^}]*\}\s*(\\label\{([^}]*)\})?", body):
+    if m.group(1) == "section":
+        _ns += 1; _nsub = 0
+    else:
+        _nsub += 1
+    if m.group(3):
+        LABELS[m.group(3)] = roman(_ns) + ("-" + chr(64 + _nsub) if m.group(1) == "subsection" else "")
 for m in re.finditer(r"\\begin\{(figure\*?|table)\}.*?\\end\{\1\}", body, re.S):
     lab = re.search(r"\\label\{([^}]*)\}", m.group(0)).group(1)
     if m.group(1).startswith("figure"):

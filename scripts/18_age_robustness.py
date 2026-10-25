@@ -21,6 +21,7 @@ Usage:
 """
 
 import argparse
+import re
 import json
 from pathlib import Path
 
@@ -178,7 +179,7 @@ def main():
     axes[1].errorbar(r.iop_vs_guys, y, xerr=[r.iop_vs_guys - r.ci.str[0], r.ci.str[1] - r.iop_vs_guys],
                      fmt="o", color=COLORS["IOP"], capsize=3)
     axes[1].axvline(0, color="k", lw=.8)
-    axes[1].set_yticks(y, [c.split("  ", 1)[-1].strip()[:42] for c in r.check], fontsize=8)
+    axes[1].set_yticks(y, [re.sub(r"^\S+\s+", "", c).replace(" [paper]", " (paper)")[:44] for c in r.check], fontsize=8)
     axes[1].set(xlabel="IOP vs Guys gap (years, 95% CI)", title="IOP offset under every age handling")
     fig.tight_layout()
     fig.savefig(out_dir / "age_robustness.png", dpi=130)
