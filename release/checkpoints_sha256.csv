@@ -1,0 +1,20 @@
+model,file,sha256
+main model (fine-tuned SFCN),checkpoints/sfcn_finetune_official/best.pt,13ddd261d45fc598c6141f2a593232518e87816e6dff036d05a4c3339e0e00d8
+"leave-one-site-out, without Guys",checkpoints/loso_without_Guys/best.pt,f9ac6c8c42237c7ecb137e234f9420e79adf919784e0bf338e7eaf50c6cf9846
+"leave-one-site-out, without HH",checkpoints/loso_without_HH/best.pt,bad5ff4670bcbb88f990d065bdbb8651a4fc32a38e00005014a29193bdef2c75
+"leave-one-site-out, without IOP",checkpoints/loso_without_IOP/best.pt,dc4129f90ae0bdb9867e328b9fd3ea6b943f47f81475a72c5ad05ef0eae7711b
+CV seed 0 fold 0 (trained blocks + head),seed0/fold0/best_tail.pt,54ddbd511793f620345934fb9fe0976b1c6a3d8d6f80046985aa361a87f60ae1
+CV seed 0 fold 1 (trained blocks + head),seed0/fold1/best_tail.pt,e51fecdcec3a7b87150855ff8a8bd7890f6791a8216e804128a9dbed9fd26cc5
+CV seed 0 fold 2 (trained blocks + head),seed0/fold2/best_tail.pt,100b2bf198b7a1879d42163fbe07d83488897506f18ee068e77f19cfe16bfa1a
+CV seed 0 fold 3 (trained blocks + head),seed0/fold3/best_tail.pt,d34f8bf60289162663195f91874e46fc7876466d8e71559f5a3949953c36b9bd
+CV seed 0 fold 4 (trained blocks + head),seed0/fold4/best_tail.pt,d2e4aad830c7abf826ea2323917d46fe26b13284ca61097b5924c5274b095bf6
+CV seed 1 fold 0 (trained blocks + head),seed1/fold0/best_tail.pt,207baefd621ae8dee09fa925890bf291a6a4f688e43ee4303793091e74ff5b41
+CV seed 1 fold 1 (trained blocks + head),seed1/fold1/best_tail.pt,e5d6b0fdca571079eccc7066cfebf6a02d8a04bdc3ac565e7ee7f723a204e31a
+CV seed 1 fold 2 (trained blocks + head),seed1/fold2/best_tail.pt,09ffef0d83fdcb010bda771787df0cb523bc3fce68c712bdbce7c86f91fa91a2
+CV seed 1 fold 3 (trained blocks + head),seed1/fold3/best_tail.pt,7770635ded092d6747a97d5bc5fff9ab48e5c8458928bb85382e39f90611d00c
+CV seed 1 fold 4 (trained blocks + head),seed1/fold4/best_tail.pt,f1a17548aa1ed5a7ebce2d3350f3790134d54098cef6f428d4a26824ac5c4169
+CV seed 2 fold 0 (trained blocks + head),seed2/fold0/best_tail.pt,afb3b5e4026d878069149ba380d88b95ea891cac2f946b5ba80822c4cbc76838
+CV seed 2 fold 1 (trained blocks + head),seed2/fold1/best_tail.pt,1b5c2d3bb013e2f603727d48872f046f3d0f3c5e8c2a4b982f85848933f80e83
+CV seed 2 fold 2 (trained blocks + head),seed2/fold2/best_tail.pt,472e675111d73b825becb625005a575c288121cb9583d99e93b810915307f59c
+CV seed 2 fold 3 (trained blocks + head),seed2/fold3/best_tail.pt,1eccc16da80a4d0a37b574c92ae5cc17532099aea0569c57ca42873e14a812e3
+CV seed 2 fold 4 (trained blocks + head),seed2/fold4/best_tail.pt,b2420368c48b4bf366f4fc7276b6cebd7cd0ec7e59a7dba0eec8f0f4495b9f68

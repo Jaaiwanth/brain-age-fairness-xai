@@ -69,7 +69,11 @@ def grade(primary, replication, label):
 def main():
     p = argparse.ArgumentParser()
     p.add_argument("--project-dir", type=Path, default=Path("D:/ML_Project"))
-    P = p.parse_args().project_dir
+    p.add_argument("--margin", type=float, default=2.0, help="sensitivity analysis; 2.0 is the fixed margin")
+    args = p.parse_args()
+    P = args.project_dir
+    global MARGIN
+    MARGIN = args.margin
     bc = json.loads((P / "results" / "phase5" / "summary.json").read_text())["bias_correction"]
     feats = np.load(P / "results" / "phase9a_site_probe" / "features.npz", allow_pickle=True)
     pred = pd.DataFrame({"IXI_ID": feats["ids"].astype(int), "pred": feats["pred"]})
@@ -102,7 +106,7 @@ def main():
 
     res = pd.concat(out, ignore_index=True)
     o = P / "results" / "phase10d_verdicts"; o.mkdir(parents=True, exist_ok=True)
-    res.to_csv(o / "graded_verdicts.csv", index=False)
+    res.to_csv(o / ("graded_verdicts.csv" if MARGIN == 2.0 else f"graded_verdicts_margin{MARGIN}.csv"), index=False)
     for _, r in res.iterrows():
         print(f"{r.analysis[:40]:40s} {r.comparison:15s} {r.outcome:9s} {r.est:+.2f} "
               f"95%[{r.ci95[0]:+.2f},{r.ci95[1]:+.2f}] MDE {r.mde80:.2f} p_holm {r.p_holm:.3f} TOST p {r.p_tost:.3f} -> {r.verdict}")
