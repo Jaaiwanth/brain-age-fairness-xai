@@ -86,6 +86,10 @@ def main():
         "ComBat-GAM (spline age)": hm.combat_apply(E, site, spline, hm.combat_fit(E, site, spline, train)),
         "LEACE site erasure (plain)": leace_fit(E[train], Z[train])(E),
     }
+    # Review check: does a smaller or larger spline change the ComBat-GAM result?
+    for k in [3, 5, 6]:
+        sk = np.column_stack([np.asarray(dmatrix(f"bs(a, df={k}) - 1", {"a": df.AGE})), male])
+        versions[f"ComBat-GAM (spline age, {k} df)"] = hm.combat_apply(E, site, sk, hm.combat_fit(E, site, sk, train))
     # Conditional LEACE: IOP's train subjects are younger, so plain erasure also removes age
     # information that is correlated with site. Erase site only from the part of the features that
     # age, age^2 and sex do not explain, then add that part back.
@@ -107,6 +111,8 @@ def main():
         rows.append({"features": name, "probe_bal_acc": float(probe["balanced_accuracy"]),
                      "probe_bal_acc_no_residualisation": float(probe_raw["balanced_accuracy"]),
                      "heldout_mae": float((held.pred - held.AGE).abs().mean()),
+                     "heldout_r_age_pred": float(np.corrcoef(held.AGE, held.pred)[0, 1]),
+                     "iop_heldout_mae": float((held[held.site == "IOP"].pred - held[held.site == "IOP"].AGE).abs().mean()),
                      "iop_vs_guys": float(m.params[T]), "ci": [float(x) for x in m.conf_int().loc[T]],
                      "p": float(m.pvalues[T]),
                      "max_pred_change_yrs": float(np.abs(pred - feats["pred"]).max()),
