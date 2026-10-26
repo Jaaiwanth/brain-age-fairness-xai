@@ -39,7 +39,7 @@ Chennai, India\\
 \maketitle
 
 \begin{abstract}
-Brain-age models predict chronological age from structural MRI, and the brain-age gap is studied as a marker of brain health. When such a model shows a disparity between acquisition sites, the disparity is often attributed to scanner differences without a test. We present a layered, pre-specified audit of a UK Biobank-pretrained SFCN fine-tuned on 485 T1-weighted IXI scans from three London sites. The model is accurate (test MAE 3.71 years, $r=0.966$) and its errors and brain-age gaps are equivalent between sexes within $\pm2$ years. Scans from one site (IOP) receive a brain-age gap about 4--5 years lower than the reference site. The offset replicates across splits and in 5-fold cross-validation over all 412 non-test subjects ($-5.24$ years, 95\% CI $-7.62$ to $-2.87$, 52 IOP subjects), survives eight ways of handling age, including age matching and a nonlinear adjustment, and is already present in the pretrained model before any training on IXI ($-3.3$ years, $p=5\times10^{-6}$). The model is sensitive to acquisition appearance: the site is linearly decodable from its features (91\% vs a 50\% permutation ceiling), and giving Hammersmith brains IOP's intensity appearance lowers their predicted age by 3.9 years. Yet this sensitivity does not explain the disparity: intensity, matched image smoothness, head size, education, BMI, ethnicity, and removing site information from the features with ComBat, ComBat-GAM or age-conditional concept erasure all leave the offset in place. Naive concept erasure appears to remove it only by also erasing age information. Attribution maps pass randomisation and deletion tests under two baselines. The model's own 90\% ranges cover only 77\% of out-of-sample IOP subjects, and pooled conformal intervals 69\%; per-site conformal intervals restore valid coverage at every site. We summarise the audit as a protocol-based fairness passport with graded, pre-specified verdicts.
+Brain-age models predict chronological age from structural MRI, and the brain-age gap is studied as a marker of brain health. When such a model shows a disparity between acquisition sites, the disparity is often attributed to scanner differences without a test. We present a layered, pre-specified audit of a UK Biobank-pretrained SFCN fine-tuned on 485 T1-weighted IXI scans from three London sites. The model is accurate (test MAE 3.71 years, $r=0.966$) and its errors are equivalent between sexes within $\pm2$ years. Scans from one site (IOP) receive a brain-age gap about 4--5 years lower than the reference site. The offset replicates across splits and in 5-fold cross-validation over all 412 non-test subjects ($-5.24$ years, 95\% CI $-7.62$ to $-2.87$, 52 IOP subjects; $-5.2$ to $-6.2$ across three training seeds), survives eight ways of handling age, including age matching and a nonlinear adjustment, and is already present in the pretrained model before any training on IXI ($-3.3$ years, $p=5\times10^{-6}$). The model is sensitive to acquisition appearance: the site is linearly decodable from its features (91\% balanced accuracy, against 50\% at the 95th percentile of a permutation null), and giving Hammersmith brains IOP's intensity appearance lowers their predicted age by 3.9 years. Yet this sensitivity does not explain the disparity: intensity, matched image smoothness, head size, education, BMI, ethnicity, and removing site information from the features with ComBat, ComBat-GAM or age-conditional concept erasure all leave the offset in place. Naive concept erasure appears to remove it only by also erasing age information. Attribution maps pass randomisation and deletion tests under two baselines. The model's own 90\% ranges cover only 77\% of out-of-sample IOP subjects, and pooled conformal intervals 69\%; per-site conformal intervals restore valid coverage at every site. We summarise the audit as a protocol-based fairness passport with graded, pre-specified verdicts.
 \end{abstract}
 
 \begin{IEEEkeywords}
@@ -115,7 +115,7 @@ IOP  & GE 1.5\,T      & 61  & 42.5 & 9 \\
 \subsection{Preprocessing and model}
 Each scan underwent N4 bias-field correction \cite{tustison2010n4}, skull-stripping with ANTsPyNet \cite{tustison2021antsx}, affine registration to the MNI152NLin6Asym 1\,mm template \cite{ciric2022templateflow}, a centre crop to $160\times192\times160$ voxels and SFCN's intensity normalisation (division by the mean over the full $182\times218\times182$ box). SFCN \cite{peng2021sfcn} has five convolution--batch-norm--max-pool--ReLU blocks and a $1\times1\times1$ block, global average pooling to 64 features and a $1\times1\times1$ convolution over one-year age bins; the prediction is the expected value of the bin distribution. We replaced the UK Biobank head (ages 42--82) with 72 bins for 18--90, warm-starting overlapping bins, and fine-tuned with Gaussian soft labels ($\sigma=2$ years) and a KL loss: the head for 5 epochs (learning rate $10^{-3}$), then the whole network with AdamW \cite{loshchilov2019adamw} (head $10^{-3}$, backbone $10^{-4}$), early stopping on validation MAE (patience 15). The checkpoint at epoch 30 was frozen. Bias correction followed \cite{cole2018mortality}: $\hat{y}=a\,y+b$ fitted on validation ($a=0.832$, $b=8.30$), corrected prediction $(\hat{y}-b)/a$.
 
-\textbf{Cross-validated replication.} To estimate group effects on more than 18 held-out IOP subjects without touching the test set, the 412 train+validation subjects were split into 5 site-stratified folds; each fold was predicted by a model trained on the other four (85\% training, 15\% inner validation for early stopping and for that fold's bias correction). Full fine-tuning was infeasible on our CPU hardware, so the first three blocks were kept at the UK Biobank weights, which never saw IXI, and the remaining blocks and head were trained with the same objective and schedule. Every non-test subject thus receives an out-of-sample prediction (52 IOP). Training was repeated with \pend{n} seeds, and the fold models' average forms an ensemble for the locked test set.
+\textbf{Cross-validated replication.} To estimate group effects on more than 18 held-out IOP subjects without touching the test set, the 412 train+validation subjects were split into 5 site-stratified folds; each fold was predicted by a model trained on the other four (85\% training, 15\% inner validation for early stopping and for that fold's bias correction). Full fine-tuning was infeasible on our CPU hardware, so the first three blocks were kept at the UK Biobank weights, which never saw IXI, and the remaining blocks and head were trained with the same objective and schedule. Every non-test subject thus receives an out-of-sample prediction (52 IOP). Training was repeated with 3 seeds; the first seed is the primary analysis (as fixed in advance) and the others test robustness, and the 15 fold models' average forms an ensemble for the locked test set.
 
 \subsection{Analysis plan}
 Fixed before the test set was evaluated: the split, the exclusions, the bias-correction procedure, the attribution layer and method, and the regression model for group effects. Fixed before the cross-validation results were seen (and committed to the public repository with a timestamp): the equivalence margin, the graded verdict rules and the passport criteria below. The remaining analyses are tests of explanations for an effect already observed and are reported as such.
@@ -152,7 +152,7 @@ We assessed the model's own predictive distribution (coverage and width of its c
 \section{Results}
 %=====================================================================
 \subsection{Accuracy}
-The UK Biobank SFCN without fine-tuning had a validation MAE of 10.21 years ($r=0.910$), because its head cannot predict outside 42--82. Fine-tuning reduced it to 3.90. On the test set, evaluated once, the MAE was \textbf{3.71} years \ci{3.10}{4.38} and $r=0.966$ (Table~\ref{tab:acc}). The cross-validated models, which fine-tune only the upper blocks, reached an out-of-sample MAE of 4.76 years ($r=0.943$) over all 412 non-test subjects, and their ensemble 4.97 ($r=0.954$) on the locked test set. An independently fine-tuned SFCN and DeepBrainNet reached test MAE 4.07 and 4.53.
+The UK Biobank SFCN without fine-tuning had a validation MAE of 10.21 years ($r=0.910$), because its head cannot predict outside 42--82. Fine-tuning reduced it to 3.90. On the test set, evaluated once, the MAE was \textbf{3.71} years \ci{3.10}{4.38} and $r=0.966$ (Table~\ref{tab:acc}). The cross-validated models, which fine-tune only the upper blocks, reached an out-of-sample MAE of 4.76 years ($r=0.943$) over all 412 non-test subjects, and the 15-model ensemble 5.06 ($r=0.949$) on the locked test set. Across the three seeds, out-of-sample MAE was 4.76, 5.12 and 4.91 years. An independently fine-tuned SFCN and DeepBrainNet reached test MAE 4.07 and 4.53.
 
 \begin{table}[t]
 \caption{Accuracy (95\% bootstrap CI)}
@@ -166,14 +166,14 @@ Model and data & MAE (years) & $r$ \\
 Main model, test (raw) & \textbf{3.71} \ci{3.10}{4.38} & 0.966 \\
 Main model, test (bias-corrected) & 3.89 \ci{3.20}{4.61} & 0.966 \\
 CV models, 412 out-of-sample & 4.76 & 0.943 \\
-CV ensemble (5 models), test & 4.97 & 0.954 \\
+CV ensemble (15 models), test & 5.06 & 0.949 \\
 Zero-shot SFCN, validation & 10.21 & 0.910 \\
 \bottomrule
 \end{tabular}
 \end{table}
 
 \subsection{Group fairness}
-Table~\ref{tab:verdicts} lists every group effect with its verdict. On the test set alone, absolute error is \emph{equivalent} between sexes and between HH and Guys (\textsc{pass}), whereas the sex difference in BAG ($-0.59$, minimum detectable effect 3.1 years) is \textsc{inconclusive}: 73 test subjects cannot show equivalence. IOP scans receive a BAG 5.06 years lower than Guys \ci{-8.66}{-1.34}, replicated in validation ($-4.08$), giving \textsc{fail}. With all 412 cross-validated predictions the picture sharpens: the sex differences in BAG ($+0.61$, MDE 1.6) and in error ($+0.11$) are now \emph{equivalent} (\textsc{pass}); IOP's BAG offset is $-5.24$ \ci{-7.56}{-2.92} (Holm $p<0.001$, \textsc{fail}); HH shows a smaller offset within the margin ($-1.51$, \textsc{concern}); and errors are larger at HH ($+1.61$) and IOP ($+4.06$), which did not replicate on the locked test set (\textsc{concern}). A model never trained on IOP was 3.30 years \ci{1.62}{4.93} less accurate there, whereas one never trained on HH generalised (+0.25).
+Table~\ref{tab:verdicts} lists every group effect with its verdict. On the test set alone, absolute error is \emph{equivalent} between sexes and between HH and Guys (\textsc{pass}), whereas the sex difference in BAG ($-0.59$, minimum detectable effect 3.1 years) is \textsc{inconclusive}: 73 test subjects cannot show equivalence. IOP scans receive a BAG 5.06 years lower than Guys \ci{-8.66}{-1.34}, replicated in validation ($-4.08$), giving \textsc{fail}. With all 412 cross-validated predictions the picture sharpens: the sex differences in BAG ($+0.61$, MDE 1.6) and in error ($+0.11$) are now \emph{equivalent} (\textsc{pass}); IOP's BAG offset is $-5.24$ \ci{-7.56}{-2.92} (Holm $p<0.001$, \textsc{fail}); HH shows a smaller offset within the margin ($-1.51$, \textsc{concern}); and errors are larger at HH ($+1.61$) and IOP ($+4.06$), which did not replicate on the locked test set (\textsc{concern}). The IOP offset was $-5.24$, $-6.23$ and $-5.57$ years for the three seeds ($-5.68$ \ci{-7.85}{-3.30} averaged over seeds, $p=10^{-6}$), and $-6.67$ \ci{-11.14}{-2.20} for the 15-model ensemble on the locked test set; the sex difference was not significant for any seed. A model never trained on IOP was 3.30 years \ci{1.62}{4.93} less accurate there, whereas one never trained on HH generalised (+0.25).
 
 \begin{table}[t]
 \caption{Group effects (years) and pre-specified verdicts}
@@ -309,7 +309,32 @@ Mean infill & 10\% & \textbf{8.15} ($+2.19$) & 3.32 ($-1.23$) & 1.49 ($-1.24$) \
 \end{figure}
 
 \subsection{Uncertainty}
-The model's own spread was larger for IOP (8.06 vs 5.66 years for Guys) and doubled when IOP was unseen (12.46 vs 6.13) with 92\% coverage, so the model signals unfamiliar data. Out of fold (Table~\ref{tab:unc}), the model's own 90\% range covered 94\% of Guys, 89\% of HH but only \textbf{77\%} of IOP subjects. Pooled split-conformal intervals, which guarantee coverage only on average, were worse for IOP (69\%), whereas per-site (Mondrian) conformal intervals covered 91--92\% at every site, at the price of much wider intervals for IOP ($\pm17.8$ vs $\pm8.2$ years for Guys). The seed ensemble's spread was also largest for IOP (3.7 vs 1.5 years). Average coverage thus hides that one site receives unreliable intervals; uncertainty must be calibrated per site, like accuracy and bias. Per subject, uncertainty tracked error only weakly (Spearman 0.16).
+The model's own spread was larger for IOP (8.06 vs 5.66 years for Guys) and doubled when IOP was unseen (12.46 vs 6.13) with 92\% coverage, so the model signals unfamiliar data. Out of fold (Table~\ref{tab:unc}), the model's own 90\% range covered 94\% of Guys, 89\% of HH but only \textbf{77\%} of IOP subjects. Pooled split-conformal intervals, which guarantee coverage only on average, were worse for IOP (69\%), whereas per-site (Mondrian) conformal intervals covered 91--92\% at every site, at the price of much wider intervals for IOP ($\pm17.8$ vs $\pm8.2$ years for Guys). Disagreement between the 15 ensemble members was also largest for IOP on the test set (spread 3.1 vs 1.6 years for Guys). Average coverage thus hides that one site receives unreliable intervals; uncertainty must be calibrated per site, like accuracy and bias. Per subject, uncertainty tracked error only weakly (Spearman 0.16).
+
+\begin{table}[t]
+\caption{Coverage of nominal 90\% intervals, out-of-sample (CV)}
+\label{tab:unc}
+\centering
+\setlength{\tabcolsep}{3pt}
+\begin{tabular}{lccc}
+\toprule
+Interval & Guys ($n$=233) & HH (127) & IOP (52) \\
+\midrule
+Model's own 90\% range & 0.94 & 0.89 & \textbf{0.77} \\
+Split conformal, pooled & 0.97 & 0.89 & \textbf{0.69} \\
+Split conformal, per site & 0.91 & 0.90 & 0.92 \\
+\midrule
+Per-site half-width (years) & 8.2 & 10.6 & 17.8 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\columnwidth]{training_dynamics.png}
+\caption{Age-adjusted IOP offset during cross-validated training (thin: folds; thick: mean). Fine-tuning fits away the offset of IOP subjects in training (brown) but not of unseen IOP subjects (green).}
+\label{fig:dyn}
+\end{figure}
 
 \subsection{Model fairness passport}
 Table~\ref{tab:passport} applies the pre-specified criteria. The full passport, its machine-readable criteria and the script that generates it are released.

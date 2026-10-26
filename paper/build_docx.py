@@ -126,7 +126,8 @@ SUP = str.maketrans("0123456789-+", "⁰¹²³⁴⁵⁶⁷⁸⁹⁻⁺")
 
 
 def math(s):
-    s = s.replace(r"\pm", "±")
+    s = s.replace(r"\pm", "±").replace(r"\leftrightarrow", "↔")
+    s = re.sub(r"\\mathrm\{([^}]*)\}", r"\1", s)
     s = re.sub(r"\^\{([-+]?\d+)\}", lambda m: m.group(1).translate(SUP), s)
     bold = s.startswith(r"\mathbf{")
     if bold:
