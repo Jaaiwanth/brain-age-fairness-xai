@@ -69,6 +69,7 @@ def args_():
     p = argparse.ArgumentParser(description="README animated assets.")
     p.add_argument("--project-dir", type=Path, default=ft.DEFAULT_PROJECT_DIR)
     p.add_argument("--out-dir", type=Path, default=HERE.parent / "figures" / "readme")
+    p.add_argument("--svg-only", action="store_true", help="Only rewrite the scorecard SVGs.")
     return p.parse_args()
 
 
@@ -216,10 +217,11 @@ def hero_svg(c):
 
 def verdict_svg(c):
     rows = [("good", "✓", "Accurate", "Test MAE 3.71 yrs, r 0.966 (test set used once)."),
-            ("good", "✓", "Fair across sex", "No difference in brain-age gap, error or attribution."),
-            ("good", "✓", "Faithful heatmaps, honest uncertainty", "Pass randomisation + deletion tests; uncertainty doubles where it should."),
-            ("bad", "✕", "Acquisition-invariant", "Site read from features at 91%; scan look alone shifts age 3–4 yrs."),
-            ("open", "?", "IOP offset explained", "−5.1 yrs, replicated; not intensity, not blur, not the feature fingerprint.")]
+            ("good", "✓", "Fair across sex", "Errors and brain-age gaps equivalent within ±2 yrs (412 cross-validated subjects)."),
+            ("good", "✓", "Faithful heatmaps", "Pass randomisation, deletion (two baselines) and Integrated Gradients checks."),
+            ("bad", "✕", "Acquisition-invariant", "Site read from features at 91%; scan look alone shifts HH/IOP brains 3–4 yrs."),
+            ("bad", "✕", "Fair across sites", "IOP −5.2 yrs, robust to age, present before fine-tuning; no tested cause explains it."),
+            ("bad", "✕", "Calibrated uncertainty", "Own 90% ranges cover 77% at IOP; per-site conformal intervals restore 92%.")]
     body = ""
     for i, (k, sym, title, note) in enumerate(rows):
         y = 66 + i * 82
@@ -229,8 +231,8 @@ def verdict_svg(c):
                  f'<text x="58" y="{y + 43}" text-anchor="middle" font-size="19" font-weight="800" fill="{c[k]}">{sym}</text>'
                  f'<text x="90" y="{y + 31}" font-size="21" font-weight="700" fill="{c["ink"]}">{title}</text>'
                  f'<text x="90" y="{y + 56}" font-size="17" fill="{c["ink2"]}">{note}</text></g>')
-    return f'''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 494" width="1200" height="494" font-family="{FONT}">
-<rect width="1200" height="494" rx="20" fill="{c["bg"]}"/><rect x=".5" y=".5" width="1199" height="493" rx="20" fill="none" stroke="{c["line"]}"/>
+    return f'''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 576" width="1200" height="576" font-family="{FONT}">
+<rect width="1200" height="576" rx="20" fill="{c["bg"]}"/><rect x=".5" y=".5" width="1199" height="575" rx="20" fill="none" stroke="{c["line"]}"/>
 <text x="24" y="44" font-size="14" letter-spacing="2.5" fill="{c["muted"]}">THE AUDIT SCORECARD</text>
 {body}</svg>'''
 
@@ -238,6 +240,10 @@ def verdict_svg(c):
 def main():
     a = args_()
     a.out_dir.mkdir(parents=True, exist_ok=True)
+    if a.svg_only:
+        for theme, c in THEMES.items():
+            (a.out_dir / f"verdict-{theme}.svg").write_text(verdict_svg(c), encoding="utf-8")
+        return
     for theme, c in THEMES.items():
         (a.out_dir / f"hero-{theme}.svg").write_text(hero_svg(c), encoding="utf-8")
         (a.out_dir / f"verdict-{theme}.svg").write_text(verdict_svg(c), encoding="utf-8")

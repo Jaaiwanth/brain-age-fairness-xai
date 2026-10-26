@@ -27,7 +27,7 @@ That is the heart of the project: **an accurate model whose answer depends partl
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="figures/readme/verdict-dark.svg">
-  <img alt="Audit scorecard. Accurate: yes, test MAE 3.71 years. Fair across sex: yes. Faithful heatmaps and honest uncertainty: yes. Acquisition-invariant: no, the site is read from its features at 91 percent and the scan look alone shifts age 3 to 4 years. IOP offset explained: open question, a replicated minus 5.1 years not explained by intensity, blur or the feature fingerprint." src="figures/readme/verdict-light.svg" width="100%">
+  <img alt="Audit scorecard. Accurate: yes, test MAE 3.71 years. Fair across sex: yes, equivalent within 2 years. Faithful heatmaps: yes. Acquisition-invariant: no, the site is read from its features at 91 percent and the scan look alone shifts HH and IOP brains 3 to 4 years. Fair across sites: no, IOP minus 5.2 years, robust to age and present before fine-tuning. Calibrated uncertainty: no, 77 percent coverage at IOP, restored to 92 percent by per-site conformal intervals." src="figures/readme/verdict-light.svg" width="100%">
 </picture>
 
 ## The model's fairness passport
@@ -51,6 +51,18 @@ A one-page certificate for the audited model, like a nutrition label for AI. It 
 - [Reproducing the results](#reproducing-the-results)
 - [An important correction](#an-important-correction)
 - [Licences, attribution and references](#licences-attribution-and-references)
+
+## Update: the robustness audit (Phase 10)
+
+A reviewer-style re-examination added cross-validation, three training seeds and pre-specified, graded verdicts. The headline changed from "scanner bias" to **"a site disparity that is not explained by the scanner properties we can measure"**:
+
+- **The IOP offset is real and robust.** 5-fold cross-validation over all 412 non-test subjects: **−5.24 years** [−7.62, −2.87], and −5.2 to −6.2 across three seeds. It survives eight ways of handling age (−3.9 to −5.2), including 1:1 age matching and a spline for age.
+- **It exists before fine-tuning.** The UK Biobank model, which never saw IXI, already predicts IOP brains 3.3 years younger (p = 5×10⁻⁶). Fine-tuning only hides it for the IOP subjects it trains on.
+- **Nothing we can measure explains it.** Intensity, blur, head size, education, BMI, ethnicity, ComBat, ComBat-GAM and age-conditional concept erasure all leave it in place. Plain concept erasure *appears* to remove it, but only because it also erases age.
+- **Sex: equivalent** within ±2 years. **Heatmaps: faithful** under two deletion baselines and Integrated Gradients.
+- **New fairness finding:** the model's 90% ranges cover only **77% of IOP subjects**; per-site conformal intervals restore 92%.
+
+Scripts `17`–`29`, the paper in [`paper/`](paper/), and the pre-specified criteria and machine-readable passport in [`release/`](release/).
 
 ## The story in seven findings
 
