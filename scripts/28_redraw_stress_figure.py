@@ -36,8 +36,13 @@ lim = np.abs(M).max()
 ax.imshow(M, cmap="RdBu", vmin=-lim, vmax=lim)
 for i in range(3):
     for j in range(3):
-        ax.text(j, i, "0 (own)" if i == j else f"{M[i, j]:+.1f}\n{100 * share[i, j]:.0f}% same sign",
-                ha="center", va="center", fontsize=10, color="white" if abs(M[i, j]) > 0.55 * lim else "black")
+        if i == j:
+            ax.text(j, i, "0 (own)", ha="center", va="center", fontsize=10)
+            continue
+        color = "white" if abs(M[i, j]) > 0.55 * lim else "black"
+        ax.text(j, i - 0.12, f"{M[i, j]:+.1f}", ha="center", va="center", fontsize=12, fontweight="bold", color=color)
+        ax.text(j, i + 0.2, f"{100 * share[i, j]:.0f}% same\ndirection", ha="center", va="center", fontsize=8,
+                color=color, linespacing=1.0)
 ax.set_xticks(range(3), [f"given {s}'s\nappearance" for s in SITES])
 ax.set_yticks(range(3), [f"{s} brains\n(n={(wide.site == s).sum()})" for s in SITES])
 ax.set_title("Change in predicted age (years) relative to\nmatching to the brain's own site")
