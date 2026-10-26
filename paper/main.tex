@@ -39,7 +39,7 @@ Chennai, India\\
 \maketitle
 
 \begin{abstract}
-Brain-age models predict chronological age from structural MRI, and the brain-age gap is studied as a marker of brain health. When such a model shows a disparity between acquisition sites, the disparity is often attributed to scanner differences without a test. We present a layered, pre-specified audit of a UK Biobank-pretrained SFCN fine-tuned on 485 T1-weighted IXI scans from three London sites. The model is accurate (test MAE 3.71 years, $r=0.966$) and its errors are equivalent between sexes within $\pm2$ years. Scans from one site (IOP) receive a brain-age gap about 4--5 years lower than the reference site. The offset replicates across splits and in 5-fold cross-validation over all 412 non-test subjects ($-5.24$ years, 95\% CI $-7.62$ to $-2.87$, 52 IOP subjects; $-5.2$ to $-6.2$ across three training seeds), survives eight ways of handling age, including age matching and a nonlinear adjustment, and is already present in the pretrained model before any training on IXI ($-3.3$ years, $p=5\times10^{-6}$). The model is sensitive to acquisition appearance: the site is linearly decodable from its features (91\% balanced accuracy, against 50\% at the 95th percentile of a permutation null), and giving Hammersmith brains IOP's intensity appearance lowers their predicted age by 3.9 years. Yet this sensitivity does not explain the disparity: intensity, matched image smoothness, head size, education, BMI, ethnicity, and removing site information from the features with ComBat, ComBat-GAM or age-conditional concept erasure all leave the offset in place. Naive concept erasure appears to remove it only by also erasing age information. Attribution maps pass randomisation and deletion tests under two baselines. The model's own 90\% ranges cover only 77\% of out-of-sample IOP subjects, and pooled conformal intervals 69\%; per-site conformal intervals restore valid coverage at every site. We summarise the audit as a protocol-based fairness passport with graded, pre-specified verdicts.
+Brain-age models predict age from structural MRI, and site disparities in the brain-age gap are often attributed to scanner differences without a test. We audit a UK Biobank-pretrained SFCN fine-tuned on 485 T1-weighted IXI scans from three London sites, with an equivalence margin and verdict rules fixed after the test-set analysis and before cross-validation. The model is accurate (test MAE 3.71 years) and its errors are equivalent between sexes. Scans from one site (IOP) receive a brain-age gap 5.24 years lower than the reference site in 5-fold cross-validation (95\% CI $-7.56$ to $-2.92$). The offset survives eight ways of handling age and is already present in the pretrained model before any training on IXI ($-3.3$ years), including away from that model's 42-year output floor. Fine-tuning hides the offset for the subjects it trains on, but not for unseen subjects. The model is sensitive to acquisition appearance: site is decodable from its features, and giving Hammersmith brains IOP's intensity profile lowers their predicted age by 3.9 years. Yet this sensitivity does not explain the disparity. Intensity, smoothness, head size, recorded cohort characteristics and age-conditional removal of site from the features all leave the offset in place; naive concept erasure removes it only by distorting IOP's predictions. Attribution maps pass randomisation and deletion tests. The model's own 90\% ranges cover only 77\% of out-of-sample IOP subjects, and per-site conformal intervals restore coverage. We summarise the audit as a fairness passport with graded verdicts.
 \end{abstract}
 
 \begin{IEEEkeywords}
@@ -57,10 +57,10 @@ These concerns meet in a common situation: a brain-age model shows a disparity b
 
 Our contributions are:
 \begin{itemize}
-\item A pre-specified, layered audit protocol (Fig.~\ref{fig:overview}) with graded verdicts based on equivalence tests, minimum detectable effects and replication, released as a reusable passport schema in the spirit of model cards \cite{mitchell2019modelcards}.
+\item A layered audit protocol (Fig.~\ref{fig:overview}) with graded verdicts based on equivalence tests, minimum detectable effects and replication, released as a reusable passport schema in the spirit of model cards \cite{mitchell2019modelcards}.
 \item A site disparity shown to be robust to eight age-handling choices, to cross-validation over all non-test subjects and to independent training runs, and present in the pretrained model before any exposure to IXI.
 \item Direct evidence of acquisition sensitivity (site decodability against a permutation null; an age- and sex-standardised intensity-swap stress test), and a systematic rule-out showing that neither acquisition properties we can measure nor recorded cohort characteristics explain the disparity.
-\item A methodological warning: concept erasure that ignores the age--site confound appears to remove the disparity by removing age information.
+\item A methodological warning: concept erasure that ignores the age--site confound appears to remove the disparity by distorting the predictions of the younger site.
 \item Validated explanations and uncertainty: attribution maps tested under two deletion baselines and against Integrated Gradients, and conformal intervals with per-site (Mondrian) coverage.
 \end{itemize}
 
@@ -115,13 +115,13 @@ IOP  & GE 1.5\,T      & 61  & 42.5 & 9 \\
 \subsection{Preprocessing and model}
 Each scan underwent N4 bias-field correction \cite{tustison2010n4}, skull-stripping with ANTsPyNet \cite{tustison2021antsx}, affine registration to the MNI152NLin6Asym 1\,mm template \cite{ciric2022templateflow}, a centre crop to $160\times192\times160$ voxels and SFCN's intensity normalisation (division by the mean over the full $182\times218\times182$ box). SFCN \cite{peng2021sfcn} has five convolution--batch-norm--max-pool--ReLU blocks and a $1\times1\times1$ block, global average pooling to 64 features and a $1\times1\times1$ convolution over one-year age bins; the prediction is the expected value of the bin distribution. We replaced the UK Biobank head (ages 42--82) with 72 bins for 18--90, warm-starting overlapping bins, and fine-tuned with Gaussian soft labels ($\sigma=2$ years) and a KL loss: the head for 5 epochs (learning rate $10^{-3}$), then the whole network with AdamW \cite{loshchilov2019adamw} (head $10^{-3}$, backbone $10^{-4}$), early stopping on validation MAE (patience 15). The checkpoint at epoch 30 was frozen. Bias correction followed \cite{cole2018mortality}: $\hat{y}=a\,y+b$ fitted on validation ($a=0.832$, $b=8.30$), corrected prediction $(\hat{y}-b)/a$.
 
-\textbf{Cross-validated replication.} To estimate group effects on more than 18 held-out IOP subjects without touching the test set, the 412 train+validation subjects were split into 5 site-stratified folds; each fold was predicted by a model trained on the other four (85\% training, 15\% inner validation for early stopping and for that fold's bias correction). Full fine-tuning was infeasible on our CPU hardware, so the first three blocks were kept at the UK Biobank weights, which never saw IXI, and the remaining blocks and head were trained with the same objective and schedule. Every non-test subject thus receives an out-of-sample prediction (52 IOP). Training was repeated with 3 seeds; the first seed is the primary analysis (as fixed in advance) and the others test robustness, and the 15 fold models' average forms an ensemble for the locked test set.
+\textbf{Cross-validated replication.} To estimate group effects on more than 18 held-out IOP subjects without touching the test set, the 412 train+validation subjects were split into 5 site-stratified folds; each fold was predicted by a model trained on the other four (85\% training, 15\% inner validation for early stopping and for that fold's bias correction). Full fine-tuning was infeasible on our CPU hardware, so the first three blocks were kept at the UK Biobank weights, which never saw IXI, and the remaining blocks and head were trained with the same objective and schedule. Every non-test subject thus receives an out-of-sample prediction (52 IOP). Cross-validated estimates therefore describe this training recipe applied to IXI, not the frozen main model itself; the main model's held-out estimates are reported alongside them. Training was repeated with 3 seeds, the most our CPU budget allowed (each seed is 5 fold models): the first seed is the primary analysis (as fixed in advance), the other two test whether conclusions depend on initialisation, and the 15 fold models' average forms an ensemble for the locked test set.
 
 \subsection{Analysis plan}
-Fixed before the test set was evaluated: the split, the exclusions, the bias-correction procedure, the attribution layer and method, and the regression model for group effects. Fixed before the cross-validation results were seen (and committed to the public repository with a timestamp): the equivalence margin, the graded verdict rules and the passport criteria below. The remaining analyses are tests of explanations for an effect already observed and are reported as such.
+Fixed before the test set was evaluated: the split, the exclusions, the bias-correction procedure, the attribution layer and method, and the regression model for group effects. The equivalence margin, the graded verdict rules and the passport criteria below were fixed \emph{after} the test-set analysis had been run, and therefore after the IOP offset had been seen, but before the cross-validation results existed; they were committed to the public repository with a timestamp. They are thus pre-specified only for the cross-validated analysis. The remaining analyses are tests of explanations for an effect already observed and are reported as such.
 
 \subsection{Group fairness and graded verdicts}
-Group effects were estimated with $\mathrm{outcome}\sim\mathrm{sex}+\mathrm{site}+\mathrm{age}$ (OLS, HC3 errors \cite{mackinnon1985hc}) for corrected BAG and absolute error, with bootstrap CIs \cite{efron1993bootstrap}. Each effect received a pre-specified verdict with margin $\pm2$ years (about half the MAE): \textsc{pass} if equivalence is shown by two one-sided tests \cite{schuirmann1987tost} (90\% CI within the margin); \textsc{inconclusive} if the 95\% CI includes zero without equivalence; \textsc{concern} if it excludes zero but the effect is within the margin or does not replicate; \textsc{fail} if it excludes zero, exceeds the margin and replicates in an independent split. We report the minimum detectable effect at 80\% power and Holm-adjusted \cite{holm1979} $p$-values across all group comparisons. Leave-one-site-out models (trained without one site) measured generalisation to an unseen site.
+Group effects were estimated with $\mathrm{outcome}\sim\mathrm{sex}+\mathrm{site}+\mathrm{age}$ (OLS, HC3 errors \cite{mackinnon1985hc}) for corrected BAG and absolute error. Regression effects are reported with HC3 normal-approximation 95\% CIs throughout; bootstrap CIs \cite{efron1993bootstrap} are used only for MAE, $r$, probe accuracy, matched-pair differences and zero-shot estimates, as marked. The equivalence margin is $\pm2$ years, the order of the scan--rescan variability of brain-age estimates: mean absolute test--retest differences of 1.0--2.3 years were reported for well-performing packages \cite{dorfel2023testretest}, so smaller group differences are not distinguishable from measurement noise in a single scan. Verdicts follow fixed rules: \textsc{pass} if equivalence is shown by two one-sided tests \cite{schuirmann1987tost} (90\% CI within $\pm2$); \textsc{inconclusive} if the 95\% CI includes zero without equivalence; \textsc{concern} if the 95\% CI excludes zero but the point estimate lies within $\pm2$, or if the effect does not replicate; \textsc{fail} if the 95\% CI excludes zero, the point estimate lies outside $\pm2$ and the effect replicates (same sign, 95\% CI excluding zero) in an independent sample. ``Exceeds the margin'' refers to the point estimate. The cross-validated estimate (412 subjects) determines the verdict; the main model's test-set estimate serves as replication, and vice versa for the test-set rows. We report the minimum detectable effect at 80\% power and Holm-adjusted \cite{holm1979} $p$-values across all group comparisons. Leave-one-site-out models (trained without one site) measured generalisation to an unseen site.
 
 \subsection{Robustness of the site effect to age}
 \label{sec:agemethods}
@@ -152,7 +152,7 @@ We assessed the model's own predictive distribution (coverage and width of its c
 \section{Results}
 %=====================================================================
 \subsection{Accuracy}
-The UK Biobank SFCN without fine-tuning had a validation MAE of 10.21 years ($r=0.910$), because its head cannot predict outside 42--82. Fine-tuning reduced it to 3.90. On the test set, evaluated once, the MAE was \textbf{3.71} years \ci{3.10}{4.38} and $r=0.966$ (Table~\ref{tab:acc}). The cross-validated models, which fine-tune only the upper blocks, reached an out-of-sample MAE of 4.76 years ($r=0.943$) over all 412 non-test subjects, and the 15-model ensemble 5.06 ($r=0.949$) on the locked test set. Across the three seeds, out-of-sample MAE was 4.76, 5.12 and 4.91 years. An independently fine-tuned SFCN and DeepBrainNet reached test MAE 4.07 and 4.53.
+The UK Biobank SFCN without fine-tuning had a validation MAE of 10.21 years ($r=0.910$), because its head cannot predict outside 42--82. Fine-tuning reduced it to 3.90. On the test set, evaluated once, the MAE was \textbf{3.71} years (Table~\ref{tab:acc}). The cross-validated models, which fine-tune only the upper blocks, were less accurate (out-of-sample MAE 4.76 years; 4.76--5.12 across seeds). An independently fine-tuned SFCN and DeepBrainNet reached test MAE 4.07 and 4.53.
 
 \begin{table}[t]
 \caption{Accuracy (95\% bootstrap CI)}
@@ -173,10 +173,10 @@ Zero-shot SFCN, validation & 10.21 & 0.910 \\
 \end{table}
 
 \subsection{Group fairness}
-Table~\ref{tab:verdicts} lists every group effect with its verdict. On the test set alone, absolute error is \emph{equivalent} between sexes and between HH and Guys (\textsc{pass}), whereas the sex difference in BAG ($-0.59$, minimum detectable effect 3.1 years) is \textsc{inconclusive}: 73 test subjects cannot show equivalence. IOP scans receive a BAG 5.06 years lower than Guys \ci{-8.66}{-1.34}, replicated in validation ($-4.08$), giving \textsc{fail}. With all 412 cross-validated predictions the picture sharpens: the sex differences in BAG ($+0.61$, MDE 1.6) and in error ($+0.11$) are now \emph{equivalent} (\textsc{pass}); IOP's BAG offset is $-5.24$ \ci{-7.56}{-2.92} (Holm $p<0.001$, \textsc{fail}); HH shows a smaller offset within the margin ($-1.51$, \textsc{concern}); and errors are larger at HH ($+1.61$) and IOP ($+4.06$), which did not replicate on the locked test set (\textsc{concern}). The IOP offset was $-5.24$, $-6.23$ and $-5.57$ years for the three seeds ($-5.68$ \ci{-7.85}{-3.30} averaged over seeds, $p=10^{-6}$), and $-6.67$ \ci{-11.14}{-2.20} for the 15-model ensemble on the locked test set; the sex difference was not significant for any seed. A model never trained on IOP was 3.30 years \ci{1.62}{4.93} less accurate there, whereas one never trained on HH generalised (+0.25).
+Table~\ref{tab:verdicts} lists every group effect with its verdict. With 73 test subjects, the sex difference in BAG cannot be shown equivalent (\textsc{inconclusive}); with all 412 cross-validated predictions it can (\textsc{pass}). IOP's BAG offset is $-5.24$ years in cross-validation (Holm $p<0.001$) and replicates on the test set ($-5.06$), giving \textsc{fail}. HH shows a smaller offset within the margin (\textsc{concern}). The IOP offset was similar for all three seeds ($-5.24$, $-6.23$, $-5.57$) and for the 15-model ensemble on the locked test set ($-6.67$); the sex difference was not significant for any seed. The test-set CI for IOP is the HC3 interval; an earlier draft reported a bootstrap interval (\ci{-8.66}{-1.34}), and we now use HC3 for all regression effects. A leave-one-site-out model never trained on IOP was 3.30 years \ci{1.62}{4.93} less accurate there, whereas one never trained on HH generalised ($+0.25$).
 
 \begin{table}[t]
-\caption{Group effects (years) and pre-specified verdicts}
+\caption{Group effects (years) and graded verdicts}
 \label{tab:verdicts}
 \centering
 \setlength{\tabcolsep}{2.5pt}
@@ -197,23 +197,24 @@ HH, BAG & CV & $-1.51$ \ci{-2.64}{-0.38} & 1.6 & \textsc{concern} \\
 IOP, BAG & CV & $-5.24$ \ci{-7.56}{-2.92} & 3.3 & \textsc{fail} \\
 IOP, error & CV & $+4.06$ \ci{2.26}{5.86} & 2.6 & \textsc{concern} \\
 \bottomrule
-\multicolumn{5}{l}{\footnotesize HC3 normal CIs; MDE: minimum detectable effect, 80\% power.}
+\multicolumn{5}{l}{\footnotesize HC3 normal CIs; MDE: minimum detectable effect, 80\% power.}\\
+\multicolumn{5}{l}{\footnotesize CV rows decide verdicts; test rows replicate. CV: training recipe, not main model.}
 \end{tabular}
 \end{table}
 
 \subsection{The IOP offset is not an artefact of age handling}
 \label{sec:agerob}
-Across all eight age-handling choices, the held-out IOP offset ranged from $-3.11$ to $-4.53$ years, with every CI excluding zero (Fig.~\ref{fig:agerob}); on the test set alone it ranged from $-4.21$ to $-5.24$. It persisted in age-matched pairs ($-3.11$ \ci{-5.67}{-0.33}), with a spline for age ($-3.98$) and with no correction at all ($-3.77$). Native brain volume did not differ between IOP and Guys after age and sex adjustment ($-16$\,ml, $p=0.38$) and did not change the offset ($-4.47$). The offset is not at the edge of the label range: held-out IOP subjects under 30 had a mean gap of $+0.5$ years, those over 30 of $-5.6$ years. In the cross-validated predictions the offset was between $-3.94$ (no correction, and age as covariate) and $-5.24$ years across the choices, $-4.65$ with a spline for age and $-4.15$ \ci{-6.62}{-1.86} in 51 age- and sex-matched pairs, all with $p<0.001$.
+Across all eight age-handling choices, the main model's held-out IOP offset ranged from $-3.11$ to $-4.53$ years, with every CI excluding zero (Fig.~\ref{fig:agerob}); the weakest estimate came from 1:1 age-matched pairs. In the cross-validated predictions it ranged from $-3.94$ to $-5.24$ years, all with $p<0.001$. Native brain volume did not differ between IOP and Guys after age and sex adjustment ($p=0.38$) and did not change the offset. The offset is not at the lower edge of the label range: held-out IOP subjects under 30 had a mean gap of $+0.5$ years, those over 30 of $-5.6$ years.
 
 \begin{figure}[t]
 \centering
 \includegraphics[width=\columnwidth]{age_robustness.png}
-\caption{Left: held-out corrected brain-age gap by age and site (lines: running means). Right: the IOP-vs-Guys offset under eight age-handling choices (95\% CI).}
+\caption{Main model, held-out subjects. Left: corrected brain-age gap by age and site (lines: running means). Right: the IOP-vs-Guys offset under eight age-handling choices (95\% CI).}
 \label{fig:agerob}
 \end{figure}
 
 \subsection{The offset exists before fine-tuning}
-The UK Biobank model, which never saw an IXI scan, already predicts IOP brains \textbf{3.34 years younger} than Guys brains of the same age and sex \ci{-4.71}{-1.91} ($p=5\times10^{-6}$, 241 subjects aged 42--82, 19 IOP). Memorisation of IOP training subjects therefore cannot be its cause. Cross-validated training shows how fine-tuning interacts with it (Fig.~\ref{fig:dyn}): after the first epoch, training and out-of-sample IOP subjects both have an age-adjusted offset of about $-2.5$ to $-2.9$ years; once the upper blocks start training (stage 2) the two diverge, and by the end of training the offset of the IOP subjects the model trains on has been fitted away ($+0.19$), while that of unseen IOP subjects has grown to $-4.49$. Fine-tuning hides the offset for the subjects it sees rather than causing it, which explains why it is absent in the training set but present in every held-out split.
+The UK Biobank model, which never saw an IXI scan, already predicts IOP brains \textbf{3.34 years younger} than Guys brains of the same age and sex \ci{-4.71}{-1.91} ($p=5\times10^{-6}$, 241 subjects aged 42--82, 19 IOP). Because this model cannot predict below 42, IOP's younger subjects could be pushed towards the floor; but the offset is unchanged with a B-spline for age ($-3.55$) and in 19 age- and sex-matched pairs ($-3.63$ \ci{-5.47}{-1.74}), and grows when the analysis is restricted to ages 50--80, away from the floor ($-5.49$ \ci{-6.75}{-4.27}; 12 matched pairs: $-5.94$; Table~\ref{tab:ruleout}). Memorisation of IOP training subjects therefore cannot be its cause, and neither can the output floor. Cross-validated training shows how fine-tuning interacts with it (Fig.~\ref{fig:dyn}): after the first epoch, training and out-of-sample IOP subjects both have an age-adjusted offset of about $-2.5$ to $-2.9$ years; once the upper blocks start training (stage 2) the two diverge, and by the end of training the offset of the IOP subjects the model trains on has been fitted away ($+0.19$), while that of unseen IOP subjects has grown to $-4.49$. Fine-tuning hides the offset for the subjects it sees rather than causing it, which explains why it is absent in the training set but present in every held-out split.
 
 \subsection{The model is sensitive to acquisition appearance}
 \textbf{Site is encoded.} The probe identified the site of held-out scans with \textbf{91.2\%} \ci{86.6}{95.2} balanced accuracy after removing age and sex, against a permutation null with mean 34\% and 95th percentile 50\% (Table~\ref{tab:probe}). This is expected: site is decodable with 99.6\% from input intensity quantiles alone and with 92.8\% from the pretrained network, so the features inherit an input-level signature; the question is whether the prediction uses it.
@@ -236,7 +237,7 @@ Cross-validated models (within fold) & 86.2 \\
 \end{tabular}
 \end{table}
 
-\textbf{Appearance moves the prediction.} Relative to matching to their own site, HH brains given IOP's age- and sex-standardised appearance became \textbf{3.92 years younger} \ci{-4.47}{-3.38}, all 45 of them, and IOP brains given HH's appearance \textbf{3.14 years older} (18 of 18; Fig.~\ref{fig:stress}). Between Guys and IOP the effect was small ($+0.11$ and $+0.90$), and Guys brains given HH's appearance became 3.32 years older. Strong blur ($\sigma=1.5$ voxels) lowered predictions by 3.17 years. With the cross-validated models, the direction replicated in all five independently trained models over all 412 out-of-sample subjects, with larger magnitudes: HH brains given IOP's appearance became 6.09 years younger (99\% of subjects; per fold $-3.7$ to $-8.3$) and IOP brains given HH's appearance 4.76 years older (98\%). Unlike the main model, these lighter fine-tunes, which keep the UK Biobank weights in their first three blocks, also responded to the Guys$\rightarrow$IOP swap ($-3.06$, 85\%), so full fine-tuning appears to reduce, but not remove, acquisition sensitivity.
+\textbf{Appearance moves the prediction.} Relative to matching to their own site, HH brains given IOP's age- and sex-standardised appearance became \textbf{3.92 years younger} \ci{-4.47}{-3.38}, all 45 of them, and IOP brains given HH's appearance \textbf{3.14 years older} (18 of 18; Fig.~\ref{fig:stress}). Between Guys and IOP the effect was small (Table~\ref{tab:ruleout}). With the cross-validated models, the direction replicated in all five fold models over all 412 out-of-sample subjects, with larger magnitudes (HH$\rightarrow$IOP: $-6.09$ years, 99\% of subjects). These lighter fine-tunes also responded to the Guys$\rightarrow$IOP swap ($-3.06$), so full fine-tuning appears to reduce, but not remove, acquisition sensitivity.
 
 \begin{figure*}[t]
 \centering
@@ -246,36 +247,43 @@ Cross-validated models (within fold) & 86.2 \\
 \end{figure*}
 
 \subsection{But acquisition sensitivity does not explain the offset}
-Table~\ref{tab:ruleout} collects every explanation tested. \emph{Intensity:} swapping between the Guys and IOP appearances moves predictions by at most about 1 year; without age standardisation of the references this effect was overstated ($-0.60/+1.60$), because IOP's younger recruitment leaked into its reference. \emph{Smoothness:} native resolution is identical across sites, yet IOP inputs are smoother (FWHM $+0.87$\,mm); blurring Guys and HH brains to IOP's smoothness did not lower their predictions. \emph{Removing site from the features:} ComBat erased the site signature (probe 36.3\%) with unchanged accuracy, but the offset remained ($-3.95$); with spline age it remained ($-6.80$); with age-conditional LEACE it remained ($-4.46$). Only \emph{plain} LEACE removed it ($+0.40$), and only because, IOP's training subjects being younger, it also erased age information correlated with site; the conditional version, which preserves age, does not. \emph{Cohort:} IOP did not differ from Guys in university degree (68\% vs 56\%; adjusted $p=0.56$), ethnicity ($p=0.64$) or BMI ($p=0.49$), and adjusting for all three left the offset unchanged in the zero-shot ($-2.80$ vs $-2.74$) and main models ($-5.26$ vs $-5.13$) and in cross-validation ($-5.04$ vs $-5.05$). Ethnicity itself showed at most a small effect: non-White participants had a gap $+1.43$ years higher in cross-validation (\ci{-0.02}{2.88}, $p=0.054$, 74 non-White), $+1.95$ in the main model's held-out subjects ($p=0.04$, 21 non-White) and none in the zero-shot model ($-0.18$), in line with the small ethnicity effects reported elsewhere \cite{aguzin2026bias}; with these numbers we report it as \textsc{inconclusive}.
+Table~\ref{tab:ruleout} collects every explanation tested. \emph{Intensity:} swapping between the Guys and IOP appearances moves predictions by at most about 1 year; without age standardisation of the references this effect was overstated ($-0.60/+1.60$), because IOP's younger recruitment leaked into its reference. \emph{Smoothness:} native resolution is identical across sites, yet IOP inputs are smoother (FWHM $+0.87$\,mm); blurring Guys and HH brains to IOP's smoothness did not lower their predictions. \emph{Removing site from the features:} ComBat erased the site signature (probe 36.3\%) with unchanged accuracy, but the offset remained ($-3.95$), as it did with spline-age ComBat and with age-conditional LEACE. Only \emph{plain} LEACE removed it ($+0.40$). It did so without lowering overall accuracy or the age--prediction correlation ($r=0.962$ vs $0.965$; Table~\ref{tab:ruleout}), but it moved predictions by 1.1 years on average (conditional LEACE: 0.26) and raised IOP's error from 5.2 to 6.1 years. Because IOP's training subjects are younger, the site direction it erases is partly an age direction for IOP; the conditional version, which first removes age and sex, leaves the offset in place. Spline-age ComBat enlarged the offset ($-6.80$ with 4 df), but this estimate was unstable across spline flexibility ($-6.07$, $-6.27$ and $-4.72$ with 3, 5 and 6 df) and IOP's error rose with it, so we attribute it to the harmonisation model fitting IOP's narrow, young age range poorly rather than to a larger true offset. \emph{Cohort:} IOP did not differ from Guys in university degree, ethnicity or BMI (adjusted $p>0.4$), and adjusting for all three left the offset unchanged in the zero-shot, main and cross-validated models. Ethnicity itself showed at most a small effect: non-White participants had a gap $+1.43$ years higher in cross-validation (\ci{-0.02}{2.88}, 74 non-White) and $+1.95$ in the main model's held-out subjects ($p=0.04$, 21 non-White), in line with the small ethnicity effects reported elsewhere \cite{aguzin2026bias}. Under the stated rule the cross-validated estimate decides, and its CI includes zero without equivalence, so the verdict is \textsc{inconclusive}.
 
 \begin{table}[t]
 \caption{Explanations tested for the IOP offset (years)}
 \label{tab:ruleout}
 \centering
-\setlength{\tabcolsep}{3pt}
-\begin{tabular}{lc}
+\setlength{\tabcolsep}{2pt}
+\footnotesize
+\begin{tabular}{lccc}
 \toprule
-Test (held-out unless noted) & IOP offset \\
+Test (main model, held-out) & IOP offset & MAE & $r$ \\
 \midrule
-Reference: corrected BAG, held-out & $-4.53$ \ci{-7.04}{-2.01} \\
-Guys$\rightarrow$IOP / IOP$\rightarrow$Guys appearance swap & $+0.11$ / $+0.90$ \\
-Guys / HH blurred to IOP smoothness & $+0.93$ / $+0.01$ \\
-+ native brain volume & $-4.47$ \ci{-6.86}{-1.98} \\
-+ degree, BMI, ethnicity & $-5.26$ \ci{-7.65}{-2.86} \\
-ComBat (linear age) & $-3.95$ \ci{-6.39}{-1.52} \\
-ComBat with spline age & $-6.80$ \ci{-10.11}{-3.49} \\
-LEACE, age-conditional & $-4.46$ \ci{-7.20}{-1.73} \\
-LEACE, plain (removes age information) & $+0.40$ \ci{-3.01}{3.82} \\
-Zero-shot model, before fine-tuning$^{*}$ & $-3.34$ \ci{-4.71}{-1.91} \\
+Reference: corrected BAG & $-4.53$ \ci{-7.04}{-2.01} & 3.81 & 0.965 \\
+Guys$\leftrightarrow$IOP appearance swap & $+0.11$ / $+0.90$ & -- & -- \\
+Guys / HH blurred to IOP & $+0.93$ / $+0.01$ & -- & -- \\
++ native brain volume & $-4.47$ \ci{-6.86}{-1.98} & -- & -- \\
++ degree, BMI, ethnicity & $-5.26$ \ci{-7.65}{-2.86} & -- & -- \\
+ComBat (linear age) & $-3.95$ \ci{-6.39}{-1.52} & 3.90 & 0.962 \\
+ComBat, spline age (4 df) & $-6.80$ \ci{-10.11}{-3.49} & 4.01 & 0.957 \\
+ComBat, spline 3 / 5 / 6 df & $-6.07$ / $-6.27$ / $-4.72$ & -- & -- \\
+LEACE, age-conditional & $-4.46$ \ci{-7.20}{-1.73} & 3.88 & 0.962 \\
+LEACE, plain & $+0.40$ \ci{-3.01}{3.82} & 3.94 & 0.962 \\
+\midrule
+Zero-shot, linear age, 42--82 & $-3.34$ \ci{-4.71}{-1.91} & -- & -- \\
+Zero-shot, B-spline age, 42--82 & $-3.55$ \ci{-4.94}{-2.25} & -- & -- \\
+Zero-shot, matched pairs, 42--82 ($n$=19) & $-3.63$ \ci{-5.47}{-1.74} & -- & -- \\
+Zero-shot, linear age, 50--80 & $-5.49$ \ci{-6.75}{-4.27} & -- & -- \\
+Zero-shot, matched pairs, 50--80 ($n$=12) & $-5.94$ \ci{-7.79}{-3.64} & -- & -- \\
 \bottomrule
-\multicolumn{2}{l}{\footnotesize $^*$Raw prediction, age-adjusted, all subjects aged 42--82.}
+\multicolumn{4}{l}{HC3 CIs; zero-shot rows: raw prediction, bootstrap CIs.}
 \end{tabular}
 \end{table}
 
 \begin{figure*}[t]
 \centering
 \includegraphics[width=0.95\textwidth]{harmonisation.png}
-\caption{ComBat harmonisation of the features: the site fingerprint is removed (left) and accuracy is unchanged (right), but the IOP offset remains (middle).}
+\caption{Main model, held-out subjects. ComBat harmonisation of the features: the site fingerprint is removed (left) and accuracy is unchanged (right), but the IOP offset remains (middle).}
 \label{fig:combat}
 \end{figure*}
 
@@ -309,7 +317,9 @@ Mean infill & 10\% & \textbf{8.15} ($+2.19$) & 3.32 ($-1.23$) & 1.49 ($-1.24$) \
 \end{figure}
 
 \subsection{Uncertainty}
-The model's own spread was larger for IOP (8.06 vs 5.66 years for Guys) and doubled when IOP was unseen (12.46 vs 6.13) with 92\% coverage, so the model signals unfamiliar data. Out of fold (Table~\ref{tab:unc}), the model's own 90\% range covered 94\% of Guys, 89\% of HH but only \textbf{77\%} of IOP subjects. Pooled split-conformal intervals, which guarantee coverage only on average, were worse for IOP (69\%), whereas per-site (Mondrian) conformal intervals covered 91--92\% at every site, at the price of much wider intervals for IOP ($\pm17.8$ vs $\pm8.2$ years for Guys). Disagreement between the 15 ensemble members was also largest for IOP on the test set (spread 3.1 vs 1.6 years for Guys). Average coverage thus hides that one site receives unreliable intervals; uncertainty must be calibrated per site, like accuracy and bias. Per subject, uncertainty tracked error only weakly (Spearman 0.16).
+Out of fold (Table~\ref{tab:unc}), the cross-validated models' own 90\% range covered 94\% of Guys, 89\% of HH but only \textbf{77\%} of IOP subjects. Conformal intervals were calibrated and evaluated on disjoint subjects (calibrate on folds 1--3, evaluate on folds 4--5, then swap; all three seeds). Pooled intervals, which guarantee coverage only on average, covered only 69\% of IOP subjects, whereas per-site (Mondrian) intervals covered 91--94\% at every site, at the price of much wider intervals for IOP ($\pm20.6$ vs $\pm8.4$ years for Guys, from only 26 IOP calibration subjects per split). Average coverage thus hides that one site receives unreliable intervals; uncertainty must be calibrated per site, like accuracy and bias.
+
+A separate analysis gives a different picture for the leave-one-site-out model: trained without IOP, its own spread doubled on IOP (12.46 vs 6.13 years) and its 90\% range covered 92\% of IOP subjects. The difference is expected: a model that has never seen a site widens its distribution there, whereas the cross-validated models have seen IOP in training and become over-confident on it.
 
 \begin{table}[t]
 \caption{Coverage of nominal 90\% intervals, out-of-sample (CV)}
@@ -322,9 +332,10 @@ Interval & Guys ($n$=233) & HH (127) & IOP (52) \\
 \midrule
 Model's own 90\% range & 0.94 & 0.89 & \textbf{0.77} \\
 Split conformal, pooled & 0.97 & 0.89 & \textbf{0.69} \\
-Split conformal, per site & 0.91 & 0.90 & 0.92 \\
+Split conformal, per site & 0.91 & 0.92 & 0.94 \\
 \midrule
-Per-site half-width (years) & 8.2 & 10.6 & 17.8 \\
+Calibration subjects per split & 117 & 64 & 26 \\
+Per-site half-width (years) & 8.4 & 11.4 & 20.6 \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -337,10 +348,10 @@ Per-site half-width (years) & 8.2 & 10.6 & 17.8 \\
 \end{figure}
 
 \subsection{Model fairness passport}
-Table~\ref{tab:passport} applies the pre-specified criteria. The full passport, its machine-readable criteria and the script that generates it are released.
+Table~\ref{tab:passport} applies the criteria fixed before cross-validation. The full passport, its machine-readable criteria and the script that generates it are released.
 
 \begin{table}[t]
-\caption{Model fairness passport (pre-specified criteria)}
+\caption{Model fairness passport (criteria fixed before CV)}
 \label{tab:passport}
 \centering
 \setlength{\tabcolsep}{3pt}
@@ -351,7 +362,7 @@ Check & Verdict & Evidence \\
 Accuracy & \textsc{pass} & MAE 3.71, $r$ 0.966 \\
 Fairness by sex & \textsc{pass} & gap and error equivalent within $\pm2$ yrs (CV) \\
 Fairness by site & \textsc{fail} & IOP $-5.2$ yrs (CV), replicated, robust to age; HH \textsc{concern} \\
-Scanner invariance & \textsc{fail} & HH$\leftrightarrow$IOP appearance shifts 3--4 yrs \\
+Invariance to intensity-swap stress test & \textsc{fail} & HH$\leftrightarrow$IOP appearance shifts 3--4 yrs \\
 Faithful explanations & \textsc{pass} & $\rho$ 0.13; deletion top $>$ random under both baselines; IG agrees \\
 Honest uncertainty & \textsc{fail} & own 90\% range covers 77\% at IOP; per-site conformal restores 92\% \\
 \bottomrule
@@ -363,11 +374,13 @@ Honest uncertainty & \textsc{fail} & own 90\% range covers 77\% at IOP; per-site
 %=====================================================================
 \textbf{A replicated disparity that is not an age artefact.} IOP's lower brain-age gap survives every age-handling choice we could construct, appears in independent splits and in cross-validation, and is present before fine-tuning. The usual first explanation of site differences in brain age, different age distributions \cite{aguzin2026bias}, does not account for it.
 
+\textbf{Fine-tuning hides the offset where it is easiest to check.} Perhaps the most practical finding is Fig.~\ref{fig:dyn}: the offset is present in every subject before fine-tuning, and fine-tuning removes it only for the IOP subjects the model is trained on ($+0.19$ years at the end of training) while it grows for unseen IOP subjects ($-4.49$). An audit that inspects training-set residuals, or reports in-sample site effects, would conclude that the model is fair across sites. Site effects must be estimated on subjects the model has not seen, and ideally with cross-validation, because a held-out split from a small site is too small to detect them.
+
 \textbf{Sensitive to acquisition, but the sensitivity is not the explanation.} The model is not acquisition-invariant: an unchanged HH brain given IOP's appearance loses almost four years. Yet the explanations we can measure---intensity profile, smoothness, head size, recorded cohort characteristics, and the site signature in the features---each leave the IOP offset in place. Two methodological lessons follow. First, references for intensity and erasure must be conditioned on age, because tissue contrast and the site--age confound carry age information: unconditioned versions overstated the intensity effect and made the offset seem to vanish. Second, removing a site signature is not the same as removing a site disparity. A study that had stopped at the stress test, or at plain erasure, would have reported ``scanner bias''; the evidence here does not support that label.
 
 \textbf{What remains.} The offset could stem from acquisition properties not modelled here (e.g., spatially varying contrast or vendor-specific reconstruction) or from cohort characteristics IXI does not record. Within IXI, site and cohort are confounded, so these cannot be separated; travelling-subject data would.
 
-\textbf{Limitations.} IOP contributes 61 subjects in total. The cross-validated models fine-tune only the upper blocks, a lighter recipe than the main model. Quantile matching changes only the global intensity distribution, and Gaussian blur did not reproduce IOP's full sharpness profile. Attribution has 8\,mm resolution, and deletion tests are themselves affected by distribution shift. We did not evaluate a classical feature-based baseline or a second dataset. Participants are healthy volunteers; no clinical conclusion follows.
+\textbf{Limitations.} IOP contributes 61 subjects in total. The cross-validated models fine-tune only the upper blocks, a lighter recipe than the main model, so their estimates describe that recipe; the main model's held-out estimates agree in sign and size, but a fully fine-tuned cross-validation remains to be run. The equivalence margin and verdict rules were fixed after the test-set analysis, so they are pre-specified only for the cross-validated analysis. Three seeds give a limited view of training variability. Quantile matching changes only the global intensity distribution, and Gaussian blur did not reproduce IOP's full sharpness profile. Attribution has 8\,mm resolution, and deletion tests are themselves affected by distribution shift. We did not evaluate a classical feature-based baseline or a second dataset. Participants are healthy volunteers; no clinical conclusion follows.
 
 \textbf{Future work.} Travelling-subject datasets, a FreeSurfer-feature baseline (if it shows the same offset, the cause lies in the images or cohort rather than a CNN shortcut), site-adversarial fine-tuning \cite{dinsdale2021unlearning}, and passports for further models and datasets.
 

@@ -35,7 +35,7 @@ That is the heart of the project: **an accurate model whose answer depends partl
 A one-page certificate for the audited model, like a nutrition label for AI. It gives a pass or fail stamp for each audit category, the evidence behind each one, what the model is and is not suitable for, and its known limits. It extends the idea of *model cards* (Mitchell et al. 2019) with checks that go beyond accuracy.
 
 <div align="center">
-<a href="demo/passport.pdf"><img src="figures/readme/passport.png" alt="Model fairness passport for SFCN on IXI. Stamps: accuracy pass, fairness by sex pass, fairness by site fail, scanner invariance fail, faithful explanations pass, honest uncertainty pass. Tables of evidence, usage guidance and known limitations." width="80%"></a>
+<a href="demo/passport.pdf"><img src="figures/readme/passport.png" alt="Model fairness passport for SFCN on IXI. Stamps: accuracy pass, fairness by sex pass, fairness by site fail, intensity-swap invariance fail, faithful explanations pass, honest uncertainty pass. Tables of evidence, usage guidance and known limitations." width="80%"></a>
 
 <sub>Download: <a href="demo/passport.pdf">PDF (A4)</a> · <a href="demo/passport.html">HTML</a></sub>
 </div>
