@@ -1,0 +1,139 @@
+{
+  "model": "SFCN (UK Biobank-pretrained), fine-tuned on IXI",
+  "criteria_file": "passport_criteria.json",
+  "criteria_fixed_on": "2026-10-25, before any Phase 10 cross-validation result was available",
+  "checks": {
+    "accuracy": {
+      "verdict": "PASS",
+      "evidence": {
+        "test_mae": 3.712298674729768,
+        "mae_ci_upper": 4.384067350047624,
+        "r": 0.9661257433758872,
+        "r_ci_lower": 0.952435104839051
+      }
+    },
+    "fairness_sex": {
+      "verdict": "PASS",
+      "evidence": [
+        {
+          "comparison": "Male vs Female",
+          "outcome": "bag",
+          "est": 0.6083566094581156,
+          "ci95": "[-0.50414693227978, 1.7208601511960113]",
+          "verdict": "PASS"
+        },
+        {
+          "comparison": "Male vs Female",
+          "outcome": "abs_error",
+          "est": 0.1079045277389659,
+          "ci95": "[-0.5804892472276256, 0.7962983027055576]",
+          "verdict": "PASS"
+        }
+      ]
+    },
+    "fairness_site": {
+      "verdict": "FAIL",
+      "evidence": [
+        {
+          "comparison": "HH vs Guys",
+          "outcome": "bag",
+          "est": -1.5065171088616958,
+          "ci95": "[-2.6363038815882422, -0.37673033613514906]",
+          "verdict": "CONCERN"
+        },
+        {
+          "comparison": "IOP vs Guys",
+          "outcome": "bag",
+          "est": -5.238544901752599,
+          "ci95": "[-7.559647160154858, -2.91744264335034]",
+          "verdict": "FAIL"
+        },
+        {
+          "comparison": "HH vs Guys",
+          "outcome": "abs_error",
+          "est": 1.6140646945239867,
+          "ci95": "[0.8935023353698918, 2.3346270536780818]",
+          "verdict": "CONCERN"
+        },
+        {
+          "comparison": "IOP vs Guys",
+          "outcome": "abs_error",
+          "est": 4.059639203502304,
+          "ci95": "[2.2572724054107454, 5.862006001593862]",
+          "verdict": "CONCERN"
+        }
+      ]
+    },
+    "scanner_invariance": {
+      "verdict": "FAIL",
+      "evidence": {
+        "worst_pair": "HH -> IOP",
+        "change_vs_own_site": -3.9161933898925785,
+        "replicated_in_cv_models": true,
+        "cv_change": -6.092
+      }
+    },
+    "site_encoding": {
+      "verdict": "INFORMATIONAL",
+      "evidence": {
+        "probe_balanced_accuracy": 0.9120035698348952,
+        "permutation_null_p95": 0.49749888442659523,
+        "encoded": true
+      }
+    },
+    "faithful_explanations": {
+      "verdict": "PASS",
+      "evidence": {
+        "randomisation_spearman": 0.12523823838855985,
+        "deletion": {
+          "mean 0.05": {
+            "top>random_share": 0.8833333333333333,
+            "p_top_vs_random": 2.9663071409270014e-09,
+            "p_random_vs_bottom": 2.5442637069521456e-05
+          },
+          "mean 0.10": {
+            "top>random_share": 0.8,
+            "p_top_vs_random": 2.5077307902768243e-08,
+            "p_random_vs_bottom": 3.5108650493061976e-08
+          },
+          "smooth 0.05": {
+            "top>random_share": 0.95,
+            "p_top_vs_random": 8.016241871760066e-11,
+            "p_random_vs_bottom": 4.249637975767529e-07
+          },
+          "smooth 0.10": {
+            "top>random_share": 0.9,
+            "p_top_vs_random": 8.666370804521837e-10,
+            "p_random_vs_bottom": 2.2085296434557277e-08
+          }
+        }
+      }
+    },
+    "honest_uncertainty": {
+      "verdict": "FAIL",
+      "evidence": {
+        "own_90_coverage": {
+          "Guys": 0.936,
+          "HH": 0.89,
+          "IOP": 0.769
+        },
+        "per_site_conformal_90_coverage": {
+          "Guys": 0.914,
+          "HH": 0.898,
+          "IOP": 0.923
+        }
+      }
+    }
+  },
+  "usage": {
+    "suitable_for": [
+      "research within a single acquisition site",
+      "teaching and methods development"
+    ],
+    "not_suitable_for": [
+      "clinical or individual decisions",
+      "comparing brain-age gaps across scanners without site-aware validation",
+      "new sites without per-site calibration of uncertainty"
+    ]
+  }
+}
