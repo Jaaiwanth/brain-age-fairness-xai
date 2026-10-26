@@ -358,7 +358,7 @@ VERDICT = """
   <div class="stamp pass"><b>PASS</b>Accuracy<small>3.7 yrs mean error, r 0.97</small></div>
   <div class="stamp pass"><b>PASS</b>Fair by sex<small>gap −0.6 yrs, CI spans 0</small></div>
   <div class="stamp fail"><b>FAIL</b>Fair by site<small>IOP brains −5.1 yrs</small></div>
-  <div class="stamp fail"><b>FAIL</b>Scanner invariance<small>site readable 91%; look alone shifts 3–4 yrs</small></div>
+  <div class="stamp fail"><b>FAIL</b>Intensity-swap invariance<small>site readable 91%; look alone shifts 3–4 yrs</small></div>
   <div class="stamp pass"><b>PASS</b>Faithful explanations<small>top regions 4.8 vs random 1.0 yrs</small></div>
   <div class="stamp pass"><b>PASS</b>Honest uncertainty<small>doubles on an unseen site, 92% coverage</small></div>
 </div>
