@@ -54,14 +54,17 @@ def parse_args():
     p.add_argument("--out-dir", type=Path, default=None)
     p.add_argument("--folds", type=int, nargs="*", default=list(range(N_FOLDS)))
     p.add_argument("--seeds", type=int, nargs="*", default=[0])
+    p.add_argument("--fold-seed", type=int, default=0,
+                   help="random state of the fold assignment (0 = the paper's folds; others = repeated CV)")
+    p.add_argument("--cache-dir", type=Path, default=None, help="reuse an existing conv_2 cache")
     return p.parse_args()
 
 
-def load_pool(project_dir):
+def load_pool(project_dir, fold_seed=0):
     pool = pd.concat([ft.load_split(project_dir, "train"), ft.load_split(project_dir, "val")], ignore_index=True)
     pool = pool[~pool.IXI_ID.isin(ft.EXCLUDED_SUBJECTS)].reset_index(drop=True)
     pool["fold"] = -1
-    for k, (_, idx) in enumerate(StratifiedKFold(N_FOLDS, shuffle=True, random_state=0).split(pool, pool.site)):
+    for k, (_, idx) in enumerate(StratifiedKFold(N_FOLDS, shuffle=True, random_state=fold_seed).split(pool, pool.site)):
         pool.loc[idx, "fold"] = k
     return pool
 
@@ -190,13 +193,13 @@ def main():
     ft.ensure_sfcn_repo(args.sfcn_repo)
     root = args.out_dir or P / "results" / "phase10_cv"
     root.mkdir(parents=True, exist_ok=True)
-    pool = load_pool(P)
+    pool = load_pool(P, args.fold_seed)
     pool.to_csv(root / "cv_folds.csv", index=False)
     test = ft.load_split(P, "test")
     test = test[~test.IXI_ID.isin(ft.EXCLUDED_SUBJECTS)].reset_index(drop=True)
     print(pool.groupby(["fold", "site"]).size().unstack(), flush=True)
 
-    cache_dir = root / "conv2_cache"
+    cache_dir = args.cache_dir or root / "conv2_cache"
     all_ids = sorted(set(pool.IXI_ID.astype(int)) | set(test.IXI_ID.astype(int)))
     print(f"Caching conv_2 outputs of the UK Biobank SFCN for {len(all_ids)} subjects...", flush=True)
     build_cache(all_ids, P / ft.DEFAULT_VOLUME_SUBDIR, cache_dir, args.sfcn_repo)
