@@ -1,0 +1,11 @@
+{
+  "cv_seeds": [
+    0,
+    1,
+    2
+  ],
+  "cv_primary_seed": 0,
+  "cv_fold_model_seed": "seed * 100 + fold (passed to set_seed in scripts/17_cv_finetune.py)",
+  "cv_fold_assignment": "release/cv_folds.csv; StratifiedKFold by site, random_state 0; identical for all seeds",
+  "analysis_rng": "numpy default_rng(0) in each analysis script unless stated (spline sweep in 22: default_rng(1))"
+}

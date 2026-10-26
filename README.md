@@ -392,6 +392,30 @@ python experiments/preprocessing/to_npy.py                        # optional .np
 
 The two fine-tuning experiments document their own commands. `experiments/preprocessing/run_rest_after_preprocess.sh` is an optional wrapper that chains preprocessing, DeepBrainNet inference and the reports. It contains hard-coded `G:` paths and must be adapted.
 
+### Paper tables and figures
+
+`python scripts/make_tables.py --project-dir $P` prints the numbers behind every table from the saved result files (no re-training). Which script writes each source:
+
+| Item | Script(s) |
+|---|---|
+| Table I (subjects per site) | `release/splits.csv` |
+| Table II (accuracy) | `03b`, `05`, `17` + `26` (CV), `31` (CV MAE CI) |
+| Table III (group effects, verdicts) | `20` |
+| Table S1 (verdicts at margins 1.5 / 2 / 2.5) | `20 --margin 1.5`, `20`, `20 --margin 2.5` |
+| Table IV (site probe) | `08`, `22` (permutation null), `26` (CV) |
+| Table V (explanations tested) | `09`, `11`, `18`, `21`, `22`, `30` (zero-shot age-floor checks) |
+| Table VI (deletion test) | `23` |
+| Table VII (coverage) | `25`, `30` (disjoint-fold conformal), `31` (Wilson CIs) |
+| Table VIII (passport) | `29` |
+| Fig. 2 (age distribution, gaps) | `24` |
+| Fig. 3 (age robustness) | `18` |
+| Fig. 4 (stress test) | `09`, redrawn by `28` |
+| Fig. 5 (ComBat) | `12` |
+| Fig. 6 (attribution) | `07`, `24` |
+| Fig. 7 (training dynamics) | `26` |
+
+Seeds and fold assignments: [`release/seeds.json`](release/seeds.json), [`release/cv_folds.csv`](release/cv_folds.csv) (one assignment, shared by all three seeds). Checkpoint hashes: [`release/checkpoints_sha256.csv`](release/checkpoints_sha256.csv). Exact package versions: [`release/requirements-lock.txt`](release/requirements-lock.txt).
+
 ### What is not in Git
 
 These are generated or third-party and are listed in `.gitignore`:

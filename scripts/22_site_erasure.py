@@ -97,6 +97,7 @@ def main():
     beta, *_ = np.linalg.lstsq(Cov[train], E[train], rcond=None)
     R = E - Cov @ beta
     versions["LEACE site erasure (age/sex-conditional)"] = leace_fit(R[train], Z[train])(R) + Cov @ beta
+    rng_sweep = np.random.default_rng(1)
     rows = []
     for name, X in versions.items():
         pred = hm.head_predict(X, W, b, centers)
@@ -106,12 +107,16 @@ def main():
         d["bag"] = (d.pred - b_) / a_ - d.AGE
         held = d[d.split != "train"]
         m = smf.ols("bag ~ C(site, Treatment('Guys')) + C(sex_label) + AGE", data=held).fit(cov_type="HC3")
-        probe = sp.probe(sp.residualise(X, lin, train), site, train, rng)
-        probe_raw = sp.probe(X, site, train, rng)
+        # The spline sweep (added in review) draws from its own generator, so the original
+        # versions and the permutation null keep their original random streams.
+        g = rng_sweep if name.endswith(" df)") else rng
+        probe = sp.probe(sp.residualise(X, lin, train), site, train, g)
+        probe_raw = sp.probe(X, site, train, g)
         rows.append({"features": name, "probe_bal_acc": float(probe["balanced_accuracy"]),
                      "probe_bal_acc_no_residualisation": float(probe_raw["balanced_accuracy"]),
                      "heldout_mae": float((held.pred - held.AGE).abs().mean()),
                      "heldout_r_age_pred": float(np.corrcoef(held.AGE, held.pred)[0, 1]),
+                     "iop_heldout_bag_sd": float(held[held.site == "IOP"].bag.std()),
                      "iop_heldout_mae": float((held[held.site == "IOP"].pred - held[held.site == "IOP"].AGE).abs().mean()),
                      "iop_vs_guys": float(m.params[T]), "ci": [float(x) for x in m.conf_int().loc[T]],
                      "p": float(m.pvalues[T]),
