@@ -67,7 +67,7 @@ def main():
     ax[2].set_ylim(ax[1].get_ylim())
     for a in ax:
         a.spines[["top", "right"]].set_visible(False)
-    fig.tight_layout(); fig.savefig(out / "age_distribution_and_gaps.png", dpi=150)
+    fig.tight_layout(); fig.savefig(out / "age_distribution_and_gaps.png", dpi=300)
 
     # 3. Volume-normalised attribution.
     fine, names, to_coarse, coarse_names = gc.build_atlas()
@@ -102,7 +102,7 @@ def main():
     ax.set_xticks(x, [c.replace(" and ", " & ") for c in coarse_names], rotation=25, ha="right", fontsize=8)
     ax.set(ylabel="attribution share / volume share", title="Attribution density by region and site (held-out)")
     ax.legend(frameon=False); ax.spines[["top", "right"]].set_visible(False)
-    fig.tight_layout(); fig.savefig(out / "attribution_density.png", dpi=150)
+    fig.tight_layout(); fig.savefig(out / "attribution_density.png", dpi=300)
 
 
 if __name__ == "__main__":

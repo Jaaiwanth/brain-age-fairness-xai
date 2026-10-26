@@ -50,5 +50,5 @@ ax.set_yticks(y, sweep.condition)
 ax.set(xlabel="Change in predicted age (years), mean and 95% CI",
        title="Single acquisition changes, same brains (n=40)")
 plt.tight_layout()
-fig.savefig(a.out, dpi=130)
+fig.savefig(a.out, dpi=300)
 print(np.round(M, 2)); print(np.round(share, 2))

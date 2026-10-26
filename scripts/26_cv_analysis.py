@@ -106,7 +106,7 @@ def main():
     ax.set(xlabel="epoch (stage 2 from epoch 6)", ylabel="age-adjusted IOP gap vs Guys/HH (yrs)",
            title="IOP offset during training (5 CV folds)")
     ax.legend(frameon=False, fontsize=8); ax.spines[["top", "right"]].set_visible(False)
-    fig.tight_layout(); fig.savefig(out_dir / "training_dynamics.png", dpi=150)
+    fig.tight_layout(); fig.savefig(out_dir / "training_dynamics.png", dpi=300)
     first = traj[traj.epoch == 1][["train_IOP_minus_ref", "outer_IOP_minus_ref"]].mean()
     last = traj.groupby("fold").tail(1)[["train_IOP_minus_ref", "outer_IOP_minus_ref"]].mean()
     res["training_dynamics"] = {"epoch1_mean": first.round(3).to_dict(), "final_epoch_mean": last.round(3).to_dict()}
