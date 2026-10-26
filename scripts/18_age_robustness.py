@@ -182,7 +182,7 @@ def main():
     axes[1].set_yticks(y, [re.sub(r"^\S+\s+", "", c).replace(" [paper]", " (paper)")[:44] for c in r.check], fontsize=8)
     axes[1].set(xlabel="IOP vs Guys gap (years, 95% CI)", title="IOP offset under every age handling")
     fig.tight_layout()
-    fig.savefig(out_dir / "age_robustness.png", dpi=130)
+    fig.savefig(out_dir / "age_robustness.png", dpi=300)
 
     summary = {"native_brain_volume_ml_site_effects_age_sex_adjusted": nbv,
                "youngest_under_30_heldout": young.reset_index().to_dict("records"),
