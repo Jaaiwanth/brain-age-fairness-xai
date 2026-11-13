@@ -110,3 +110,6 @@ experiments/deepbrainnet/smoke_results.json
 
 # Local-only case study (not published)
 docs/
+
+# Paper drafts stay local only
+paper/

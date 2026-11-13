@@ -216,7 +216,7 @@ def main():
         ax.text(i, v + 0.05, f"{v:.2f}", ha="center")
     ax.set(ylabel="MAE (years)", title="Accuracy (held-out)")
     plt.tight_layout()
-    fig.savefig(out_dir / "harmonisation.png", dpi=130)
+    fig.savefig(out_dir / "harmonisation.png", dpi=300)
     print(f"\nSaved to {out_dir}")
 
 

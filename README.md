@@ -5,7 +5,7 @@
   <img alt="Right for the Wrong Reasons? Auditing a brain-age deep network beyond accuracy. Test error 3.71 years, no detectable sex gap, IOP brain-age offset of minus 5.1 years, scanner read from the model's features at 91 percent. Verdict: partly." src="figures/readme/hero-light.svg" width="100%">
 </picture>
 
-**[Interactive website](demo/index.html)** · **[Fairness passport](demo/passport.pdf)** · **[Report](report/report_draft.md)** · **[Project log](PROJECT_GUIDE.md)** · **[Reproduce it](#reproducing-the-results)**
+**[Interactive website](demo/index.html)** · **[Live demo](demo/live_demo.py)** · **[Fairness passport](demo/passport.pdf)** · **[Report](report/report_draft.md)** · **[Project log](PROJECT_GUIDE.md)** · **[Reproduce it](#reproducing-the-results)**
 
 <sub>Fine-tuned SFCN on 485 IXI brain MRIs · every number from code in this repo · test set used once · no clinical claims</sub>
 
@@ -27,7 +27,7 @@ That is the heart of the project: **an accurate model whose answer depends partl
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="figures/readme/verdict-dark.svg">
-  <img alt="Audit scorecard. Accurate: yes, test MAE 3.71 years. Fair across sex: yes. Faithful heatmaps and honest uncertainty: yes. Acquisition-invariant: no, the site is read from its features at 91 percent and the scan look alone shifts age 3 to 4 years. IOP offset explained: open question, a replicated minus 5.1 years not explained by intensity, blur or the feature fingerprint." src="figures/readme/verdict-light.svg" width="100%">
+  <img alt="Audit scorecard. Accurate: yes, test MAE 3.71 years. Fair across sex: yes, equivalent within 2 years. Faithful heatmaps: yes. Acquisition-invariant: no, the site is read from its features at 91 percent and the scan look alone shifts HH and IOP brains 3 to 4 years. Fair across sites: no, IOP minus 5.2 years, robust to age and present before fine-tuning. Calibrated uncertainty: no, 77 percent coverage at IOP, restored to 92 percent by per-site conformal intervals." src="figures/readme/verdict-light.svg" width="100%">
 </picture>
 
 ## The model's fairness passport
@@ -35,7 +35,7 @@ That is the heart of the project: **an accurate model whose answer depends partl
 A one-page certificate for the audited model, like a nutrition label for AI. It gives a pass or fail stamp for each audit category, the evidence behind each one, what the model is and is not suitable for, and its known limits. It extends the idea of *model cards* (Mitchell et al. 2019) with checks that go beyond accuracy.
 
 <div align="center">
-<a href="demo/passport.pdf"><img src="figures/readme/passport.png" alt="Model fairness passport for SFCN on IXI. Stamps: accuracy pass, fairness by sex pass, fairness by site fail, scanner invariance fail, faithful explanations pass, honest uncertainty pass. Tables of evidence, usage guidance and known limitations." width="80%"></a>
+<a href="demo/passport.pdf"><img src="figures/readme/passport.png" alt="Model fairness passport for SFCN on IXI. Stamps: accuracy pass, fairness by sex pass, fairness by site fail, intensity-swap invariance fail, faithful explanations pass, honest uncertainty pass. Tables of evidence, usage guidance and known limitations." width="80%"></a>
 
 <sub>Download: <a href="demo/passport.pdf">PDF (A4)</a> · <a href="demo/passport.html">HTML</a></sub>
 </div>
@@ -51,6 +51,18 @@ A one-page certificate for the audited model, like a nutrition label for AI. It 
 - [Reproducing the results](#reproducing-the-results)
 - [An important correction](#an-important-correction)
 - [Licences, attribution and references](#licences-attribution-and-references)
+
+## Update: the robustness audit (Phase 10)
+
+A reviewer-style re-examination added cross-validation, three training seeds and pre-specified, graded verdicts. The headline changed from "scanner bias" to **"a site disparity that is not explained by the scanner properties we can measure"**:
+
+- **The IOP offset is real and robust.** 5-fold cross-validation over all 412 non-test subjects: **−5.24 years** [−7.62, −2.87], and −5.2 to −6.2 across three seeds. It survives eight ways of handling age (−3.9 to −5.2), including 1:1 age matching and a spline for age.
+- **It exists before fine-tuning.** The UK Biobank model, which never saw IXI, already predicts IOP brains 3.3 years younger (p = 5×10⁻⁶). Fine-tuning only hides it for the IOP subjects it trains on.
+- **Nothing we can measure explains it.** Intensity, blur, head size, education, BMI, ethnicity, ComBat, ComBat-GAM and age-conditional concept erasure all leave it in place. Plain concept erasure *appears* to remove it, but only because it also erases age.
+- **Sex: equivalent** within ±2 years. **Heatmaps: faithful** under two deletion baselines and Integrated Gradients.
+- **New fairness finding:** the model's 90% ranges cover only **77% of IOP subjects**; per-site conformal intervals restore 92%.
+
+Scripts `17`–`29`, the paper in [`paper/`](paper/), and the pre-specified criteria and machine-readable passport in [`release/`](release/).
 
 ## The story in seven findings
 
@@ -214,6 +226,7 @@ flowchart LR
 | Uncertainty | Predictive SD and 90%-range coverage, main and leave-one-site-out models | [`scripts/13_uncertainty.py`](scripts/13_uncertainty.py) |
 | Deletion test | Smooth away the highest-, lowest- or randomly-ranked attribution cells | [`scripts/14_attribution_deletion_test.py`](scripts/14_attribution_deletion_test.py) |
 | Website | Builds the self-contained interactive page from saved results | [`scripts/15_build_demo.py`](scripts/15_build_demo.py) |
+| Live demo | Runs the model live in the browser: predict, explain + deletion test, scanner-look swap, site probe | [`demo/live_demo.py`](demo/live_demo.py) |
 
 **Rules followed throughout** (from [`PROJECT_GUIDE.md`](PROJECT_GUIDE.md)):
 - One model is trained on everyone, and results are split by group afterwards.
@@ -355,6 +368,8 @@ python scripts/13_uncertainty.py --project-dir $P --checkpoint-root $P/checkpoin
 python scripts/14_attribution_deletion_test.py --project-dir $P --checkpoint $CK
 # 9. website
 python scripts/15_build_demo.py --project-dir $P
+# live demo in the browser (needs gradio; opens http://127.0.0.1:7860)
+python demo/live_demo.py --project-dir $P --sfcn-repo external/UKBiobank_deep_pretrain --checkpoint $P/checkpoints/sfcn_finetune_official/best.pt
 ```
 
 Each script's docstring lists its options and outputs. [`PROJECT_GUIDE.md`](PROJECT_GUIDE.md) records the exact numbers each step produced.
@@ -376,6 +391,30 @@ python experiments/preprocessing/to_npy.py                        # optional .np
 ```
 
 The two fine-tuning experiments document their own commands. `experiments/preprocessing/run_rest_after_preprocess.sh` is an optional wrapper that chains preprocessing, DeepBrainNet inference and the reports. It contains hard-coded `G:` paths and must be adapted.
+
+### Paper tables and figures
+
+`python scripts/make_tables.py --project-dir $P` prints the numbers behind every table from the saved result files (no re-training). Which script writes each source:
+
+| Item | Script(s) |
+|---|---|
+| Table I (subjects per site) | `release/splits.csv` |
+| Table II (accuracy) | `03b`, `05`, `17` + `26` (CV), `31` (CV MAE CI) |
+| Table III (group effects, verdicts) | `20` |
+| Table S1 (verdicts at margins 1.5 / 2 / 2.5) | `20 --margin 1.5`, `20`, `20 --margin 2.5` |
+| Table IV (site probe) | `08`, `22` (permutation null), `26` (CV) |
+| Table V (explanations tested) | `09`, `11`, `18`, `21`, `22`, `30` (zero-shot age-floor checks) |
+| Table VI (deletion test) | `23` |
+| Table VII (coverage) | `25`, `30` (disjoint-fold conformal), `31` (Wilson CIs) |
+| Table VIII (passport) | `29` |
+| Fig. 2 (age distribution, gaps) | `24` |
+| Fig. 3 (age robustness) | `18` |
+| Fig. 4 (stress test) | `09`, redrawn by `28` |
+| Fig. 5 (ComBat) | `12` |
+| Fig. 6 (attribution) | `07`, `24` |
+| Fig. 7 (training dynamics) | `26` |
+
+Seeds and fold assignments: [`release/seeds.json`](release/seeds.json), [`release/cv_folds.csv`](release/cv_folds.csv) (one assignment, shared by all three seeds). Checkpoint hashes: [`release/checkpoints_sha256.csv`](release/checkpoints_sha256.csv). Exact package versions: [`release/requirements-lock.txt`](release/requirements-lock.txt).
 
 ### What is not in Git
 
