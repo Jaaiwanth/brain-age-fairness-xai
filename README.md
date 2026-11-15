@@ -370,7 +370,32 @@ python scripts/14_attribution_deletion_test.py --project-dir $P --checkpoint $CK
 python scripts/15_build_demo.py --project-dir $P
 # live demo in the browser (needs gradio; opens http://127.0.0.1:7860)
 python demo/live_demo.py --project-dir $P --sfcn-repo external/UKBiobank_deep_pretrain --checkpoint $P/checkpoints/sfcn_finetune_official/best.pt
+# 10. cross-validation (the paper's primary group estimates; the test split stays locked)
+#     3 model seeds on fold assignment 0, then 5 further fold assignments with model seed 0
+python scripts/17_cv_finetune.py --project-dir $P --sfcn-repo external/UKBiobank_deep_pretrain --seeds 0 1 2
+for R in 1 2 3 4 5; do python scripts/17_cv_finetune.py --project-dir $P --sfcn-repo external/UKBiobank_deep_pretrain --seeds 0 --fold-seed $R; done
+# 11. robustness and explanation analyses (read the saved predictions and checkpoints)
+python scripts/18_age_robustness.py --project-dir $P
+python scripts/19_zero_shot_site_offset.py --project-dir $P
+python scripts/20_graded_verdicts.py --project-dir $P               # add --margin 1.5 / 2.5 for the sensitivity table
+python scripts/21_cohort_covariates.py --project-dir $P
+python scripts/22_site_erasure.py --project-dir $P --checkpoint $CK
+python scripts/23_deletion_baselines.py --project-dir $P --sfcn-repo external/UKBiobank_deep_pretrain --checkpoint $CK
+python scripts/24_extra_figures.py --project-dir $P
+python scripts/25_uncertainty_conformal.py --project-dir $P
+python scripts/26_cv_analysis.py --project-dir $P
+python scripts/27_cv_stress_test.py --project-dir $P --sfcn-repo external/UKBiobank_deep_pretrain
+python scripts/28_redraw_stress_figure.py --project-dir $P --out figures/stress_test.png
+# 12. fairness passport (criteria fixed in release/passport_criteria.json before cross-validation)
+python scripts/29_fairness_passport.py --project-dir $P
+# 13. review and revision checks: age-floor, conformal, margin sensitivity, repeated CV
+python scripts/30_review_checks.py --project-dir $P
+python scripts/31_revision_numbers.py --project-dir $P
+python scripts/32_redraw_attribution_map.py --project-dir $P --out figures/attribution_mean_map.png
+python scripts/33_repeated_cv_summary.py --project-dir $P
 ```
+
+Scripts 17 and 27 retrain models and are slow without a GPU. The other scripts in steps 11–13 read saved predictions and checkpoints, so they need no training.
 
 Each script's docstring lists its options and outputs. [`PROJECT_GUIDE.md`](PROJECT_GUIDE.md) records the exact numbers each step produced.
 
